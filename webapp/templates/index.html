@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARM Template Generator</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='azure_arm.png') }}">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Prism JS for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bicep.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="container mx-auto max-w-4xl px-4">
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 text-center">ARM Template Generator</h1>
+            <p class="text-gray-600 text-center mt-2">Generate Bicep templates from natural language</p>
+        </header>
+
+        <!-- Hideable Instructions -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleInstructions()">
+                <h2 class="text-lg font-semibold text-blue-900">📖 How to Write Effective Prompts</h2>
+                <svg id="instructions-arrow" class="w-5 h-5 text-blue-900 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+            <div id="instructions-content" class="mt-4">
+                <p class="text-sm text-gray-700 mb-3">For best results, include these details in your prompt:</p>
+                <ul class="text-sm text-gray-700 space-y-2 list-disc list-inside">
+                    <li><strong>Resource Type:</strong> Specify the Azure resource (e.g., Storage Account, Virtual Machine, App Service)</li>
+                    <li><strong>Configuration:</strong> Include key settings (e.g., SKU, tier, redundancy type)</li>
+                    <li><strong>Location:</strong> Mention the Azure region if specific (e.g., East US, West Europe)</li>
+                    <li><strong>Dependencies:</strong> Note any related resources or connections needed</li>
+                    <li><strong>Security:</strong> Specify access controls, encryption, or network requirements</li>
+                </ul>
+                <div class="mt-4 p-3 bg-white rounded border border-blue-200">
+                    <p class="text-xs font-semibold text-gray-700 mb-2">Example prompts:</p>
+                    <div class="space-y-2">
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs text-gray-600 flex-1">• "Create a storage account with blob storage, geo-redundant storage, and HTTPS-only access in East US"</span>
+                            <button onclick="useExample('Create a storage account with blob storage, geo-redundant storage, and HTTPS-only access in East US')"
+                                    class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                Use This
+                            </button>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs text-gray-600 flex-1">• "Deploy an App Service with B1 tier, .NET 8 runtime, and integrate with Application Insights"</span>
+                            <button onclick="useExample('Deploy an App Service with B1 tier, .NET 8 runtime, and integrate with Application Insights')"
+                                    class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                Use This
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <!-- Mode Toggle -->
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                    Bicep Generation Mode:
+                </label>
+                <div class="flex items-center gap-6">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="bicep-mode" value="avm" id="mode-avm" checked class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        <span class="ml-2 text-sm text-gray-700">
+                            <strong>Use Azure Verified Modules (AVM)</strong>
+                            <span class="block text-xs text-gray-500 mt-1">Recommended - Uses official, maintained modules <u>if available</u></span>
+                        </span>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="bicep-mode" value="classic" id="mode-classic" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        <span class="ml-2 text-sm text-gray-700">
+                            <strong>Classic Bicep</strong>
+                            <span class="block text-xs text-gray-500 mt-1">Generate raw resource definitions</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Input Section -->
+            <div class="mb-6">
+                <label for="prompt-input" class="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your prompt:
+                </label>
+                <textarea
+                    id="prompt-input"
+                    rows="4"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Example: Create a storage account with blob storage in East US..."
+                ></textarea>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="mb-6">
+                <button
+                    id="submit-button"
+                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
+                >
+                    Generate Template
+                </button>
+            </div>
+
+            <!-- Status Message -->
+            <p id="status-message" class="text-sm text-gray-600 mb-4"></p>
+
+            <!-- Output Section -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700">
+                        Generated Bicep Code:
+                    </label>
+                    <div class="flex gap-2">
+                        <button
+                            id="wrap-toggle"
+                            onclick="toggleWordWrap()"
+                            class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded transition"
+                            title="Toggle word wrap"
+                        >
+                            Wrap: On
+                        </button>
+                        <button
+                            id="copy-button"
+                            onclick="copyCode()"
+                            class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition"
+                            title="Copy to clipboard"
+                        >
+                            📋 Copy
+                        </button>
+                        <button
+                            id="download-button"
+                            onclick="downloadCode()"
+                            class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition"
+                            title="Download as .bicep file"
+                        >
+                            💾 Download
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-gray-900 rounded-md overflow-x-auto">
+                    <pre id="code-pre" class="m-0 p-4" style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;"><code id="output-code" class="language-bicep" style="white-space: inherit;">// Generated code will appear here...</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Prism syntax highlighting
+        Prism.highlightAll();
+
+        // Toggle instructions visibility
+        function toggleInstructions() {
+            const content = document.getElementById('instructions-content');
+            const arrow = document.getElementById('instructions-arrow');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.style.transform = 'rotate(0deg)';
+            } else {
+                content.style.display = 'none';
+                arrow.style.transform = 'rotate(-90deg)';
+            }
+        }
+
+        // Word wrap toggle
+        let isWrapped = true;
+        function toggleWordWrap() {
+            const codePre = document.getElementById('code-pre');
+            const outputCode = document.getElementById('output-code');
+            const wrapToggle = document.getElementById('wrap-toggle');
+            const container = codePre.parentElement;
+
+            isWrapped = !isWrapped;
+
+            if (isWrapped) {
+                // Enable word wrap - no horizontal scroll
+                codePre.style.whiteSpace = 'pre-wrap';
+                codePre.style.wordWrap = 'break-word';
+                codePre.style.overflowWrap = 'break-word';
+                codePre.style.maxWidth = '100%';
+                outputCode.style.whiteSpace = 'inherit';
+                container.style.overflowX = 'hidden';
+                wrapToggle.textContent = 'Wrap: On';
+            } else {
+                // Disable word wrap - allow horizontal scroll
+                codePre.style.whiteSpace = 'pre';
+                codePre.style.wordWrap = 'normal';
+                codePre.style.overflowWrap = 'normal';
+                codePre.style.maxWidth = 'none';
+                outputCode.style.whiteSpace = 'pre';
+                container.style.overflowX = 'auto';
+                wrapToggle.textContent = 'Wrap: Off';
+            }
+        }
+
+        // Copy code to clipboard
+        function copyCode() {
+            const outputCode = document.getElementById('output-code');
+            const copyButton = document.getElementById('copy-button');
+            const codeText = outputCode.textContent;
+
+            // Use the Clipboard API
+            navigator.clipboard.writeText(codeText).then(() => {
+                // Show success feedback
+                const originalText = copyButton.textContent;
+                copyButton.textContent = '✓ Copied!';
+                copyButton.className = 'text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition';
+
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                    copyButton.className = 'text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition';
+                }, 2000);
+            }).catch(err => {
+                // Fallback: show error
+                console.error('Failed to copy:', err);
+                copyButton.textContent = '✗ Failed';
+                setTimeout(() => {
+                    copyButton.textContent = '📋 Copy';
+                }, 2000);
+            });
+        }
+
+        // Download code as .bicep file
+        function downloadCode() {
+            const outputCode = document.getElementById('output-code');
+            const downloadButton = document.getElementById('download-button');
+            const codeText = outputCode.textContent;
+
+            // Create a blob with the code content
+            const blob = new Blob([codeText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+
+            // Create a temporary download link
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'template.bicep';
+
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+
+            // Cleanup
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            // Show success feedback
+            const originalText = downloadButton.textContent;
+            downloadButton.textContent = '✓ Downloaded!';
+            downloadButton.className = 'text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition';
+
+            // Reset button after 2 seconds
+            setTimeout(() => {
+                downloadButton.textContent = originalText;
+                downloadButton.className = 'text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition';
+            }, 2000);
+        }
+    </script>
+
+    <!-- Main application JavaScript -->
+    <script src="{{ url_for('static', filename='index.js') }}"></script>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-sm text-gray-500">
+        <p>Azure Bicep Template Generator v{{ version }}</p>
+        <p class="mt-1">Powered by Azure OpenAI & Azure AI Search</p>
+    </footer>
+</body>
+</html>
