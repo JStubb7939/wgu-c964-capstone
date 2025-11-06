@@ -1,0 +1,6 @@
+Flask
+openai
+azure-search-documents
+azure-identity
+gunicorn
+concurrent.futures
