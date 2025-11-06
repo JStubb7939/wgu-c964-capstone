@@ -144,13 +144,13 @@ output storageAccountId string = storageAccount.id
         search_results = search_client.search(
             search_text=user_query,
             filter=search_filter,
-            top=3,
+            top=2,  # Reduced from 3 to minimize context size
             query_type="semantic",
             semantic_configuration_name='avm-semantic-config',
             vector_queries=[{
                 "kind": "text",
                 "text": user_query,
-                "k": 3,
+                "k": 3,  # Reduced from 5 to minimize context size
                 "fields": "vector"
             }]
         )
@@ -160,11 +160,21 @@ output storageAccountId string = storageAccount.id
 
         retrieved_content = ""
         result_count = 0
+        total_context_chars = 0
 
         for result in search_results:
             result_count += 1
             content = result.get('content', 'No content available')
+
+            # Truncate very large content to prevent token limit issues
+            # Approximate: 1 token ≈ 4 characters, we want to keep context under ~8000 tokens total
+            MAX_CHARS_PER_DOC = 3000  # ~750 tokens per document
+            if len(content) > MAX_CHARS_PER_DOC:
+                app.logger.warning(f"Context {result_count} is {len(content)} chars, truncating to {MAX_CHARS_PER_DOC}")
+                content = content[:MAX_CHARS_PER_DOC] + "\n... [content truncated for length]"
+
             retrieved_content += f"--- Context {result_count} ---\n{content}\n\n"
+            total_context_chars += len(content)
 
         # If no results found, set a default message
         if result_count == 0:
@@ -173,10 +183,11 @@ output storageAccountId string = storageAccount.id
             yield f"data: {json.dumps({'status': 'progress', 'message': '⚠️ No relevant context found, proceeding anyway...'})}\n\n"
         else:
             app.logger.info(f"Retrieved {result_count} context documents from AI Search")
+            app.logger.info(f"Total context size: {total_context_chars} characters (~{total_context_chars // 4} tokens)")
             yield f"data: {json.dumps({'status': 'progress', 'message': f'✅ Found {result_count} relevant document(s)'})}\n\n"
 
         app.logger.info("--- Retrieved Context ---")
-        app.logger.info(retrieved_content)
+        app.logger.info(f"Context preview (first 500 chars): {retrieved_content[:500]}...")
         app.logger.info("--- End Retrieved Context ---")
 
         # Construct the augmented prompt for the agent
@@ -186,7 +197,25 @@ output storageAccountId string = storageAccount.id
 
         # Call Azure OpenAI with the agent model (JSON mode, no streaming)
         yield f"data: {json.dumps({'status': 'progress', 'message': '🤖 Generating Bicep code with Azure OpenAI agent...'})}\n\n"
-        app.logger.info(f"Calling Azure OpenAI agent to generate Bicep code...\nAgent Prompt: {agent_user_prompt}")
+        app.logger.info(f"Calling Azure OpenAI agent to generate Bicep code...")
+        app.logger.info(f"Agent prompt length: {len(agent_user_prompt)} characters (~{len(agent_user_prompt) // 4} tokens)")
+
+        # Calculate approximate input tokens to determine max_tokens
+        # System message + user prompt, rough estimate: 1 token ≈ 4 characters
+        estimated_input_tokens = (len(AGENT_SYSTEM_MESSAGE) + len(agent_user_prompt)) // 4
+
+        # GPT-4o mini has a 128k token context window with max 16k output tokens
+        # Context window: 128,000 tokens
+        # Max output tokens: 16,384 tokens
+        CONTEXT_WINDOW = 128000
+        MAX_OUTPUT_LIMIT = 16384
+
+        # Calculate safe max_tokens: ensure input + output doesn't exceed context window
+        # Also respect the model's maximum output token limit
+        available_tokens = CONTEXT_WINDOW - estimated_input_tokens - 500  # 500 token safety buffer
+        max_output_tokens = min(MAX_OUTPUT_LIMIT, available_tokens, 8192)  # Cap at 8192 for typical responses
+
+        app.logger.info(f"Estimated input tokens: {estimated_input_tokens}, max output tokens: {max_output_tokens}")
 
         response = openai_client.chat.completions.create(
             model=OPENAI_DEPLOYMENT_NAME,
@@ -196,12 +225,20 @@ output storageAccountId string = storageAccount.id
             ],
             response_format={"type": "json_object"},  # Force JSON output
             temperature=0.1,  # Lower temperature for deterministic JSON
-            max_tokens=4096
+            max_tokens=max_output_tokens,
+            timeout=60.0  # Add 60 second timeout to prevent hanging
         )
 
         # Parse the JSON response from the model
         model_response_content = response.choices[0].message.content
-        app.logger.info(f"Received JSON response from agent model")
+        finish_reason = response.choices[0].finish_reason
+
+        app.logger.info(f"Received JSON response from agent model (finish_reason: {finish_reason})")
+
+        # Check if response was truncated due to token limits
+        if finish_reason == 'length':
+            app.logger.warning("⚠️ Model response was truncated due to token limit!")
+            yield f"data: {json.dumps({'status': 'progress', 'message': '⚠️ Response may be incomplete due to length...'})}\n\n"
 
         try:
             response_data = json.loads(model_response_content)
@@ -235,6 +272,13 @@ output storageAccountId string = storageAccount.id
 
         # Return the generated Bicep code
         yield f"data: {json.dumps({'status': 'complete', 'bicep': generated_bicep})}\n\n"
+
+    except TimeoutError as e:
+        # Log timeout error
+        app.logger.error(f"Timeout during generation: {e}", exc_info=True)
+
+        # Send timeout error event
+        yield f"data: {json.dumps({'status': 'error', 'error': 'The request timed out. The query may be too complex or the service is experiencing high load. Please try simplifying your request or try again later.'})}\n\n"
 
     except Exception as e:
         # Log the full error with traceback
