@@ -1,21 +1,21 @@
 # Azure Bicep Template Generator
 
-A web application that generates Azure Bicep Infrastructure as Code (IaC) templates using natural language prompts. Powered by Azure AI Search and Azure OpenAI, this tool leverages Retrieval-Augmented Generation (RAG) to create accurate, best-practice Bicep code based on Azure Verified Modules (AVM) and ARM resource schemas.
+A web application that generates Azure Bicep Infrastructure as Code (IaC) templates using natural language prompts. Powered by Azure AI Search and a fine-tuned Azure OpenAI agent, this tool leverages Retrieval-Augmented Generation (RAG) with agentic reasoning to create accurate, best-practice Bicep code based on Azure Verified Modules (AVM) and ARM resource schemas.
 
 ## Features
 
-- 🤖 **AI-Powered Generation**: Uses Azure OpenAI with streaming to generate Bicep templates from natural language descriptions
-- 🔍 **Smart Context Retrieval**: Employs Azure AI Search with semantic and vector hybrid search to find relevant documentation
-- 📚 **AVM Support**: Generates code using Azure Verified Modules (official, maintained modules) by default
-- ⚙️ **Dual Mode**: Toggle between AVM-based templates or classic Bicep resource definitions
-- 📊 **Real-Time Progress**: Live status updates show each stage of the generation process
-- ⚡ **Streaming Responses**: Token-by-token streaming creates a typewriter effect for improved perceived speed
-- 💻 **User-Friendly Interface**: Clean, modern UI with syntax highlighting and code management tools
-- 📋 **Code Tools**: Copy to clipboard, download as .bicep file, and word wrap toggle
-- 📝 **Example Prompts**: Quick-start examples with one-click insertion
-- 🔢 **Version Display**: Application version shown in footer
-- 🎨 **Custom Favicon**: Branded Azure ARM icon
-- 🔨 **Build Automation**: Automated build scripts with logging for easy deployment
+- **Agentic AI Generation**: Uses a fine-tuned Azure OpenAI agent model that reasons about infrastructure requirements and generates structured outputs
+- **Smart Context Retrieval**: Employs Azure AI Search with semantic and vector hybrid search to find relevant documentation
+- **AVM Support**: Generates code using Azure Verified Modules (official, maintained modules) by default
+- **Dual Mode**: Toggle between AVM-based templates or classic Bicep resource definitions
+- **Real-Time Progress**: Live status updates show each stage of the generation process
+- **Structured Output**: Agent returns JSON with plan, files (main.bicep + parameters.json), and warnings
+- **User-Friendly Interface**: Clean, modern UI with syntax highlighting and code management tools
+- **Code Tools**: Copy to clipboard, download as .bicep file, and word wrap toggle
+- **Example Prompts**: Quick-start examples with one-click insertion
+- **Version Display**: Application version shown in footer
+- **Custom Favicon**: Branded Azure ARM icon
+- **Build Automation**: Automated build scripts with logging for easy deployment
 
 ## Architecture
 
@@ -24,30 +24,66 @@ A web application that generates Azure Bicep Infrastructure as Code (IaC) templa
 - **Backend**: Python Flask 3.x
 - **Frontend**: HTML, JavaScript, Tailwind CSS, Prism.js
 - **AI Services**:
-  - Azure OpenAI (GPT models)
-  - Azure AI Search (semantic + vector search)
+  - Azure OpenAI (Fine-tuned GPT-4o-mini agent model)
+  - Azure AI Search (semantic + vector hybrid search)
 - **Authentication**: Azure Managed Identity (DefaultAzureCredential)
 - **Deployment**: Docker container on Azure Container Apps
 
-### RAG Pipeline with Streaming
+### Agentic RAG Pipeline
+
+The application uses an **agentic workflow** with a fine-tuned model that reasons about infrastructure requirements:
 
 1. **User Input**: Natural language prompt describing desired Azure infrastructure
 2. **Mode Selection**: User chooses between AVM or Classic Bicep generation
 3. **Context Retrieval**: Azure AI Search performs hybrid search (semantic + vector) to find relevant:
-   - Azure Verified Module documentation
-   - ARM resource schema definitions
-4. **Augmentation**: Retrieved context is combined with user prompt and mode-specific system instructions
-5. **Streaming Generation**: Azure OpenAI generates Bicep code token-by-token with real-time display
-6. **Post-Processing**: Code is cleaned and formatted for final display
+   - Azure Verified Module documentation (filtered by mode)
+   - ARM resource schema definitions (filtered by mode)
+4. **Augmentation**: Retrieved context is combined with user prompt and provided to the agent
+5. **Agentic Generation**: Fine-tuned agent model analyzes requirements and generates structured JSON output:
+   - **Plan**: Rationale and list of resources to be created
+   - **Files**: main.bicep and parameters.json with full content
+   - **Warnings**: Fallback notices or caveats
+6. **Extraction**: Backend extracts main.bicep from JSON response
+7. **Display**: Client receives complete Bicep code via Server-Sent Events
 
 **Real-Time Progress Updates**:
 
-- 🔍 Validating request
-- 🔎 Searching Azure AI Search for relevant context
-- 📚 Processing search results
-- ✅ Found N relevant documents
-- ✨ Streaming code (token-by-token display)
-- ✅ Template generated successfully
+- Validating request
+- Searching Azure AI Search for relevant context
+- Processing search results
+- Found N relevant documents
+- Generating Bicep code with Azure OpenAI agent
+- Template generated successfully
+
+### Agent Model Behavior
+
+The fine-tuned agent is trained to:
+- Return responses **only as valid JSON** (no markdown, no conversational text)
+- **Prioritize AVM modules** when user requests AVM mode
+- **Generate classic Bicep** when user requests classic mode
+- **Base responses strictly on context** to avoid hallucinations
+- Include a **plan** with rationale for architectural decisions
+- Generate both **main.bicep** and **parameters.json** when applicable
+- **warnings** when falling back or making assumptions
+
+**Agent JSON Schema**:
+```json
+{
+  "plan": {
+    "resources": [
+      {"resourceType": "br/public:avm/res/storage/storage-account:0.8.0", "name": "storageAccount"}
+    ],
+    "rationale": "User requested an AVM for Storage Account with specific configuration"
+  },
+  "files": [
+    {"path": "main.bicep", "language": "bicep", "content": "...full bicep code..."},
+    {"path": "parameters.json", "language": "json", "content": "...full parameters..."}
+  ],
+  "warnings": [
+    "Fell back to classic Bicep as no AVM module was found in context"
+  ]
+}
+```
 
 ## Getting Started
 
@@ -55,7 +91,7 @@ A web application that generates Azure Bicep Infrastructure as Code (IaC) templa
 
 - Python 3.13+
 - Azure subscription
-- Azure OpenAI resource with a GPT deployment
+- Azure OpenAI resource with a fine-tuned GPT deployment
 - Azure AI Search service with indexed AVM and schema data
 - Docker (for containerized deployment)
 
@@ -70,7 +106,7 @@ AZURE_SEARCH_INDEX_NAME=your-index-name
 
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT=https://your-openai-resource.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT_NAME=your-gpt-deployment-name
+AZURE_OPENAI_DEPLOYMENT_NAME=your-fine-tuned-gpt-deployment-name
 ```
 
 ### Local Development
@@ -114,8 +150,8 @@ If Azure services are not configured, the app runs in local development mode and
 ### Basic Workflow
 
 1. **Choose Generation Mode**:
-   - **Use Azure Verified Modules (AVM)** (Recommended): Generates code using official, maintained modules
-   - **Classic Bicep**: Generates raw resource definitions
+   - **Use Azure Verified Modules (AVM)** (Recommended): Agent generates code using official, maintained modules
+   - **Classic Bicep**: Agent generates raw resource definitions
 
 2. **Enter Your Prompt**: Describe the Azure infrastructure you want to create. Include:
    - Resource type (e.g., Storage Account, Virtual Machine)
@@ -124,7 +160,7 @@ If Azure services are not configured, the app runs in local development mode and
    - Dependencies or related resources
    - Security requirements
 
-3. **Generate**: Click "Generate Bicep Template" and watch real-time progress updates
+3. **Generate**: Click "Generate Template" and watch real-time progress updates
 
 4. **Review & Use**: Copy the generated code to clipboard or download as a `.bicep` file
 
@@ -151,7 +187,7 @@ The repository includes automated build scripts that handle version management, 
 
 **PowerShell (Windows)**:
 
-```bash
+```powershell
 # Build with current version
 .\build.ps1
 
@@ -171,12 +207,12 @@ The repository includes automated build scripts that handle version management, 
 
 **Features**:
 
-- ✅ Automatic version management
-- ✅ Docker build with version tagging (`:version` and `:latest`)
-- ✅ Azure Container Registry login and push
-- ✅ Build logs saved to `build.log` (overwritten each run)
-- ✅ Color-coded console output
-- ✅ Error handling and exit codes
+- Automatic version management
+- Docker build with version tagging (`:version` and `:latest`)
+- Azure Container Registry login and push
+- Build logs saved to `build.log` (overwritten each run)
+- Color-coded console output
+- Error handling and exit codes
 
 ### Manual Docker Build & Push
 
@@ -228,7 +264,7 @@ If you prefer manual deployment:
        AZURE_SEARCH_SERVICE_ENDPOINT=<endpoint> \
        AZURE_SEARCH_INDEX_NAME=<index-name> \
        AZURE_OPENAI_ENDPOINT=<endpoint> \
-       AZURE_OPENAI_DEPLOYMENT_NAME=<deployment-name>
+       AZURE_OPENAI_DEPLOYMENT_NAME=<fine-tuned-deployment-name>
    ```
 
 4. **Assign RBAC Roles**:
@@ -271,20 +307,36 @@ If you prefer manual deployment:
 ## Project Structure
 
 ```txt
-webapp/
-├── app.py                 # Flask application with RAG pipeline
-├── requirements.txt       # Python dependencies
-├── Dockerfile            # Container image definition
-├── version.txt           # Application version
-├── build.ps1             # PowerShell build automation script
-├── build.sh              # Bash build automation script
-├── .gitignore            # Git exclusions (build.log, etc.)
-├── templates/
-│   └── index.html        # Main UI template with AVM/Classic toggle
-├── static/
-│   ├── index.js          # Client-side JavaScript with SSE handling
-│   └── azure_arm.png     # Favicon
-└── README.md             # This file
+wgu-c964-capstone/
+├── README.md                    # This file (project overview and documentation)
+├── requirements.txt             # Project-level Python dependencies
+├── documentation/               # Project documentation and guides
+├── grounding-data/              # RAG context data (AVM modules, ARM schemas)
+│   ├── extracted_avm_data.jsonl
+│   ├── extracted_schema_data_1-of-2.jsonl
+│   ├── extracted_schema_data_2-of-2.jsonl
+│   └── scripts/                 # Data extraction scripts
+├── training-data/               # Fine-tuning datasets for agent model
+│   ├── train_agent.jsonl
+│   ├── training_set.jsonl
+│   ├── validation_set.jsonl
+│   └── scripts/                 # Training data processing scripts
+├── infrastructure/              # Azure infrastructure as code
+│   └── main.bicep               # Bicep template for Azure deployment
+└── webapp/                      # Flask web application
+    ├── app.py                   # Flask application with agentic RAG pipeline
+    ├── requirements.txt         # Web app Python dependencies
+    ├── Dockerfile               # Container image definition
+    ├── version.txt              # Application version
+    ├── build.ps1                # PowerShell build automation script
+    ├── build.sh                 # Bash build automation script
+    ├── APP_UPDATE_NOTES.md      # Technical documentation on agentic transition
+    ├── TESTING_GUIDE.py         # Testing checklist and examples
+    ├── templates/
+    │   └── index.html           # Main UI template with AVM/Classic toggle
+    └── static/
+        ├── index.js             # Client-side JavaScript with SSE handling
+        └── azure_arm.png        # Favicon
 ```
 
 ## API Endpoints
@@ -309,22 +361,20 @@ Generates Bicep code from a natural language prompt using Server-Sent Events (SS
 **Response**: SSE stream with JSON events:
 
 ```json
-{"status": "progress", "message": "🔍 Validating request..."}
-{"status": "progress", "message": "🔎 Searching Azure AI Search..."}
-{"status": "progress", "message": "✅ Found 3 relevant document(s)"}
-{"status": "streaming", "message": "✨ Streaming code..."}
-{"status": "chunk", "content": "resource "}
-{"status": "chunk", "content": "storageAccount "}
-{"status": "complete", "bicep": "// Complete generated Bicep code..."}
+{"status": "progress", "message": "Validating request..."}
+{"status": "progress", "message": "Searching Azure AI Search for relevant context..."}
+{"status": "progress", "message": "Found 2 relevant document(s)"}
+{"status": "progress", "message": "Generating Bicep code with Azure OpenAI agent..."}
+{"status": "complete", "bicep": "// Complete generated Bicep code from agent..."}
 ```
 
 **Event Types**:
 
 - `progress`: Status updates during processing
-- `streaming`: Indicates token-by-token streaming has begun
-- `chunk`: Individual code tokens for real-time display
-- `complete`: Final complete Bicep code
+- `complete`: Final complete Bicep code extracted from agent response
 - `error`: Error message if generation fails
+
+**Note**: The agent does not support token-by-token streaming due to JSON mode requirements. The complete response is generated and then returned via SSE.
 
 ## Configuration
 
@@ -332,27 +382,40 @@ Generates Bicep code from a natural language prompt using Server-Sent Events (SS
 
 The search index should contain:
 
-- **AVM Module Documentation**: Descriptions, parameters, examples
+- **AVM Module Documentation**: Descriptions, parameters, examples, module IDs
 - **ARM Resource Schemas**: Resource type definitions, API versions, properties
 
 Required fields:
 
-- `content`: Text content for semantic search
+- `content`: Text content for semantic search (should include "AVM Module" or "ARM Schema" markers)
 - `vector`: Embeddings for vector search
 
 Search configuration:
 
 - Semantic configuration: `avm-semantic-config`
 - Vector field: `vector`
-- Top results: 3 (configurable in code)
+- Top results: 2 (optimized for token limits)
+- Context truncation: Max 3000 chars per document (~750 tokens)
 
-### System Messages
+**Search Filters**:
+- AVM mode: `search.ismatch('AVM Module', 'content')`
+- Classic mode: `search.ismatch('ARM Schema', 'content')`
 
-Two system messages guide AI behavior:
+### Agent System Message
 
-**AVM Mode**: Prioritizes Azure Verified Modules, uses them when sufficient for user requirements
+The application uses a single `AGENT_SYSTEM_MESSAGE` that instructs the model to:
+- Return only valid JSON (no markdown, no conversation)
+- Prioritize AVM modules when requested
+- Use classic Bicep when requested
+- Base responses strictly on provided context
+- Include plan, files, and warnings in structured output
 
-**Classic Mode**: Generates classic Bicep resource definitions, avoids AVM modules
+**API Configuration**:
+- API Version: `2024-02-15-preview` (supports JSON mode)
+- Response Format: `{"type": "json_object"}` (forces JSON output)
+- Temperature: `0.1` (deterministic for consistent JSON)
+- Max Tokens: Dynamically calculated based on context size (up to 8192, respecting 128k context window)
+- Timeout: 60 seconds
 
 ## Troubleshooting
 
@@ -365,7 +428,7 @@ Two system messages guide AI behavior:
 ### No Search Results
 
 - **Cause**: Index empty, query mismatch, or search service issues
-- **Solution**: Verify index has data, test queries in Azure portal
+- **Solution**: Verify index has data, check content includes "AVM Module" or "ARM Schema" markers
 - **Fallback**: App continues generation with "No relevant context found" message
 
 ### Connection Errors
@@ -374,39 +437,56 @@ Two system messages guide AI behavior:
 - **Solution**: Verify environment variables, check Managed Identity is enabled
 - **Fallback**: App runs in local development mode with dummy responses
 
-### Rate Limiting
+### JSON Parsing Errors
 
-- **Cause**: Exceeded OpenAI API quota
-- **Solution**: Increase quota or implement retry logic
-- **Current Handling**: Returns error to user
+- **Cause**: Agent returned invalid JSON or response was truncated
+- **Solution**: Check logs for "Raw response", verify model deployment, increase max_tokens if needed
+- **Current Handling**: Returns error with JSON parse details
+
+### Rate Limiting / Token Limits
+
+- **Cause**: Exceeded OpenAI API quota or token context window
+- **Solution**: 
+  - Context is automatically truncated to 3000 chars per document
+  - Max output tokens calculated dynamically with safety buffer
+  - Search reduced to 2 results to minimize input tokens
+- **Current Handling**: Returns error to user with timeout or token limit message
 
 ## Security Considerations
 
-- ✅ **Managed Identity**: Uses Azure AD authentication, no API keys in code
-- ✅ **RBAC**: Least-privilege access with specific role assignments
-- ✅ **Input Validation**: Validates user input before processing
-- ✅ **Error Handling**: Sanitizes error messages, logs details server-side
-- ⚠️ **Rate Limiting**: Consider implementing request throttling for production
-- ⚠️ **Content Filtering**: Azure OpenAI includes content filtering by default
+- **Managed Identity**: Uses Azure AD authentication, no API keys in code
+- **RBAC**: Least-privilege access with specific role assignments
+- **Input Validation**: Validates user input before processing
+- **Error Handling**: Sanitizes error messages, logs details server-side
+- **Grounded Responses**: Agent trained to avoid hallucinations, uses only provided context
+- **Rate Limiting**: Consider implementing request throttling for production
+- **Content Filtering**: Azure OpenAI includes content filtering by default
 
 ## Performance Considerations
 
 - **Search Latency**: Hybrid search typically ~100-500ms
-- **OpenAI Generation**: Varies by model and output length, typically 2-10 seconds
-- **Total Time**: Expect 3-15 seconds end-to-end for most requests
+- **Agent Generation**: Non-streaming JSON mode, typically 3-8 seconds depending on complexity
+- **Total Time**: Expect 4-10 seconds end-to-end for most requests
+- **Context Optimization**: 
+  - Limited to 2 search results
+  - Each document truncated to 3000 chars
+  - Total context kept under ~8000 tokens
+  - Dynamic max_tokens calculation ensures responses complete within limits
 - **Optimization**: Results cached in browser, consider server-side caching for common queries
+
+## Fine-Tuning Details
+
+The agent model is fine-tuned on:
+- **Training Data**: Azure Verified Module examples and ARM template patterns
+- **Format**: JSON-structured training examples with plan/files/warnings schema
+- **Base Model**: GPT-4o-mini (efficient for structured outputs)
+- **Specialization**: Bicep syntax, AVM module usage, parameter patterns, best practices
+
+See `training-data/` directory for training datasets and `webapp/APP_UPDATE_NOTES.md` for technical implementation details.
 
 ## License
 
-[Specify your license here]
-
-## Contributing
-
-[Add contribution guidelines if applicable]
-
-## Support
-
-[Add support contact information]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
@@ -415,3 +495,4 @@ Two system messages guide AI behavior:
 - Uses [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/)
 - Syntax highlighting by [Prism.js](https://prismjs.com/)
 - Styled with [Tailwind CSS](https://tailwindcss.com/)
+
