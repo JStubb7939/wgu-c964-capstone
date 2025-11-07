@@ -148,7 +148,7 @@
                     </div>
                 </div>
                 <div class="bg-gray-900 rounded-md overflow-x-auto">
-                    <pre id="code-pre" class="m-0 p-4" style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;"><code id="output-code" class="language-bicep" style="white-space: inherit;">// Generated code will appear here...</code></pre>
+                    <pre id="code-pre" class="m-0 p-4" style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%; tab-size: 2;"><code id="output-code" class="language-bicep" style="white-space: pre-wrap; tab-size: 2;">// Generated code will appear here...</code></pre>
                 </div>
             </div>
         </div>
@@ -182,12 +182,12 @@
             isWrapped = !isWrapped;
 
             if (isWrapped) {
-                // Enable word wrap - no horizontal scroll
+                // Enable word wrap - allow wrapping but preserve indentation
                 codePre.style.whiteSpace = 'pre-wrap';
                 codePre.style.wordWrap = 'break-word';
                 codePre.style.overflowWrap = 'break-word';
                 codePre.style.maxWidth = '100%';
-                outputCode.style.whiteSpace = 'inherit';
+                outputCode.style.whiteSpace = 'pre-wrap';
                 container.style.overflowX = 'hidden';
                 wrapToggle.textContent = 'Wrap: On';
             } else {
