@@ -1,7 +1,11 @@
-import os
-import logging
+import hashlib
 import json
+import logging
+import os
+import tiktoken
 import time
+import uuid
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, Response
 from flask_compress import Compress
 from flask_limiter import Limiter
@@ -9,6 +13,11 @@ from flask_limiter.util import get_remote_address
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+
+# Configure response caching
+response_cache = {}
+CACHE_MAX_SIZE = 100
+CACHE_TTL_SECONDS = 3600  # 1 hour
 
 # Configuration constants from environment variables
 SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_SERVICE_ENDPOINT")
@@ -110,7 +119,45 @@ limiter = Limiter(
 def index():
     return render_template('index.html', version=VERSION)
 
-def generate_stream(user_query, search_filter=None):
+try:
+    encoding = tiktoken.encoding_for_model("gpt-4o-mini")
+except:
+    encoding = None
+
+def get_cache_key(prompt, mode):
+    """Generate cache key from prompt and mode"""
+    content = f"{prompt.lower().strip()}:{mode}".encode('utf-8')
+    return hashlib.md5(content).hexdigest()
+
+def get_from_cache(cache_key):
+    """Get response from cache if valid"""
+    if cache_key in response_cache:
+        cached_data, timestamp = response_cache[cache_key]
+        if time.time() - timestamp < CACHE_TTL_SECONDS:
+            return cached_data
+        else:
+            # Remove expired entry
+            del response_cache[cache_key]
+    return None
+
+def add_to_cache(cache_key, response_data):
+    """Add response to cache with size limit"""
+    # Remove oldest entries if cache is full
+    if len(response_cache) >= CACHE_MAX_SIZE:
+        oldest_key = min(response_cache.keys(), key=lambda k: response_cache[k][1])
+        del response_cache[oldest_key]
+
+    response_cache[cache_key] = (response_data, time.time())
+
+def count_tokens(text):
+    """More accurate token counting"""
+    if encoding:
+        return len(encoding.encode(text))
+    else:
+        # Fallback to character estimation
+        return len(text) // 4
+
+def generate_stream(user_query, cache_key=None, search_filter=None):
     try:
         start_time = time.time()
 
@@ -215,7 +262,7 @@ output storageAccountId string = storageAccount.id
 
         # Calculate approximate input tokens to determine max_tokens
         # System message + user prompt, rough estimate: 1 token ≈ 4 characters
-        estimated_input_tokens = (len(AGENT_SYSTEM_MESSAGE) + len(agent_user_prompt)) // 4
+        estimated_input_tokens = count_tokens(AGENT_SYSTEM_MESSAGE) + count_tokens(agent_user_prompt)
 
         # GPT-4o mini has a 128k token context window with max 16k output tokens
         # Context window: 128,000 tokens
@@ -288,6 +335,11 @@ output storageAccountId string = storageAccount.id
         app.logger.info('Successfully generated Bicep code')
         app.logger.info(f"Total request time: {time.time() - start_time:.2f}s")
 
+        if cache_key:
+            # Cache the generated Bicep code
+            add_to_cache(cache_key, generated_bicep)
+            app.logger.info(f"Cached response for key: {cache_key}")
+
         # Return the generated Bicep code
         yield f"data: {json.dumps({'status': 'complete', 'bicep': generated_bicep})}\n\n"
 
@@ -306,10 +358,12 @@ output storageAccountId string = storageAccount.id
         yield f"data: {json.dumps({'status': 'error', 'error': 'An error occurred while generating the Bicep template. Please try again or contact support if the problem persists.'})}\n\n"
 
 @app.route('/generate', methods=['POST'])
-@limiter.limit("5 per minute")  # 5 requests per minute per IP
+@limiter.limit("5 per minute")
 def generate():
     """Endpoint that streams progress updates using Server-Sent Events"""
     try:
+        request_id = str(uuid.uuid4())[:8]  # Short request ID
+
         # Get JSON data from request body
         data = request.get_json()
 
@@ -347,18 +401,35 @@ def generate():
             augmented_user_query += " classic non-avm"
 
         # Log the filter and augmented query
-        app.logger.info(f'Search filter: {search_filter}')
-        app.logger.info(f'Augmented user query: {augmented_user_query}')
-        app.logger.info(f'Mode: {mode}')
+        app.logger.info(f'[{request_id}] Search filter: {search_filter}')
+        app.logger.info(f'[{request_id}] Augmented user query: {augmented_user_query}')
+        app.logger.info(f'[{request_id}] Mode: {mode}')
 
-        return Response(
-            generate_stream(augmented_user_query, search_filter),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no'
-            }
-        )
+        cache_key = get_cache_key(user_query, mode)
+        cached_bicep = get_from_cache(cache_key)
+
+        if cached_bicep:
+            app.logger.info(f"Cache hit for query: {user_query[:50]}...")
+
+            def send_cached_response():
+                yield f"data: {json.dumps({'status': 'progress', 'message': '⚡ Retrieved from cache...'})}\n\n"
+                yield f"data: {json.dumps({'status': 'complete', 'bicep': cached_bicep})}\n\n"
+
+            return Response(
+                send_cached_response(),
+                mimetype='text/event-stream',
+                headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
+            )
+        else:
+            return Response(
+                generate_stream(augmented_user_query, cache_key, search_filter),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'X-Accel-Buffering': 'no',
+                    'X-Request-ID': request_id
+                }
+            )
 
     except Exception as e:
         # Log the full error with traceback
@@ -368,6 +439,28 @@ def generate():
         return jsonify({
             "error": "An error occurred while generating the Bicep template. Please try again or contact support if the problem persists."
         }), 500
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    health_status = {
+        "status": "healthy",
+        "version": VERSION,
+        "azure_enabled": AZURE_ENABLED,
+        "timestamp": time.time()
+    }
+
+    # Check if Azure services are reachable
+    if AZURE_ENABLED:
+        try:
+            # Quick ping to search service
+            list(search_client.search(search_text="test", top=1))
+            health_status["search_service"] = "ok"
+        except Exception as e:
+            health_status["search_service"] = "error"
+            health_status["status"] = "degraded"
+
+    return jsonify(health_status), 200 if health_status["status"] == "healthy" else 503
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -6,3 +6,4 @@ azure-search-documents
 azure-identity
 gunicorn
 matplotlib
+tiktoken
