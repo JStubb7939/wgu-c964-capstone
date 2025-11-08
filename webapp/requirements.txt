@@ -1,0 +1,9 @@
+flask
+flask-compress
+flask-limiter
+openai
+azure-search-documents
+azure-identity
+gunicorn
+matplotlib
+tiktoken
