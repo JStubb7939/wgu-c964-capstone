@@ -11,10 +11,10 @@
     <!-- Tailwind CSS for General Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Prism JS for Syntax Highlighting -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bicep.min.js"></script>
+    <!-- Highlight.js for Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/highlightjs-bicep@1.0.0/dist/bicep.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen py-8">
     <div class="container mx-auto max-w-4xl px-4">
@@ -32,7 +32,7 @@
             </div>
             <div id="visualizations-content" class="mt-4" style="display: none;">
                 <p class="text-sm text-gray-700 mb-6">This application combines fine-tuned AI models with Retrieval-Augmented Generation (RAG) to produce accurate, context-aware Bicep templates. Below are visualizations showing the training performance and data composition that power this system.</p>
-                
+
                 <div class="mb-6 p-4 bg-white rounded-lg border border-purple-200">
                     <h3 class="text-md font-semibold text-gray-800 mb-3">System Architecture</h3>
                     <div class="mb-3">
@@ -41,8 +41,8 @@
                         <p class="text-sm text-gray-700"><strong>Key components:</strong> Flask web app, Azure AI Search (semantic + vector search), fine-tuned Azure OpenAI agent, and a comprehensive knowledge base of 20,000+ documents.</p>
                     </div>
                     <div class="flex justify-center p-4 bg-gray-50 rounded">
-                        <img src="{{ url_for('static', filename='architecture-diagram.png') }}" 
-                             alt="System Architecture Diagram" 
+                        <img src="{{ url_for('static', filename='architecture-diagram.png') }}"
+                             alt="System Architecture Diagram"
                              class="max-w-full h-auto"
                              style="max-height: 500px;">
                     </div>
@@ -56,8 +56,8 @@
                         <p class="text-sm text-gray-700"><strong>Impact:</strong> The large schema collection ensures broad resource coverage, while AVM modules provide best-practice implementations for common scenarios.</p>
                     </div>
                     <div class="flex justify-center p-4 bg-gray-50 rounded">
-                        <img src="{{ url_for('static', filename='rag_data_composition.png') }}" 
-                             alt="RAG Data Composition" 
+                        <img src="{{ url_for('static', filename='rag_data_composition.png') }}"
+                             alt="RAG Data Composition"
                              class="max-w-full h-auto"
                              style="max-height: 400px;">
                     </div>
@@ -72,8 +72,8 @@
                             <p class="text-xs text-gray-700"><strong>Result:</strong> Final training loss of 0.0229 indicates high-quality, consistent outputs.</p>
                         </div>
                         <div class="flex justify-center p-3 bg-gray-50 rounded">
-                            <img src="{{ url_for('static', filename='training-loss-graph.png') }}" 
-                                 alt="Training Loss Graph" 
+                            <img src="{{ url_for('static', filename='training-loss-graph.png') }}"
+                                 alt="Training Loss Graph"
                                  class="max-w-full h-auto">
                         </div>
                     </div>
@@ -86,8 +86,8 @@
                             <p class="text-xs text-gray-700"><strong>Result:</strong> Perfect accuracy on training data, with strong generalization to new prompts.</p>
                         </div>
                         <div class="flex justify-center p-3 bg-gray-50 rounded">
-                            <img src="{{ url_for('static', filename='training-accuracy-graph.png') }}" 
-                                 alt="Training Accuracy Graph" 
+                            <img src="{{ url_for('static', filename='training-accuracy-graph.png') }}"
+                                 alt="Training Accuracy Graph"
                                  class="max-w-full h-auto">
                         </div>
                     </div>
@@ -240,15 +240,15 @@
                     </div>
                 </div>
                 <div class="bg-gray-900 rounded-md overflow-x-auto">
-                    <pre id="code-pre" class="m-0 p-4" style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%; tab-size: 2;"><code id="output-code" class="language-bicep" style="white-space: pre-wrap; tab-size: 2;">// Generated code will appear here...</code></pre>
+                    <pre id="code-pre" class="m-0 p-4" style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%; tab-size: 2;"><code id="output-code" class="language-bicep hljs" style="white-space: pre-wrap; tab-size: 2;">// Generated code will appear here...</code></pre>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Initialize Prism syntax highlighting
-        Prism.highlightAll();
+        // Initialize Highlight.js and register Bicep language
+        hljs.highlightAll();
     </script>
 
     <script src="{{ url_for('static', filename='index.js') }}"></script>

@@ -20,6 +20,10 @@ submitButton.addEventListener('click', async (event) => {
     statusMessage.textContent = 'Starting...';
     statusMessage.className = 'text-sm text-blue-600 mb-4 font-semibold';
 
+    // Hide the code output during generation
+    const codePre = document.getElementById('code-pre');
+    codePre.style.visibility = 'hidden';
+
     submitButton.disabled = true;
     submitButton.textContent = 'Generating...';
     submitButton.className = 'w-full bg-gray-400 text-white py-2 px-4 rounded-md cursor-not-allowed transition';
@@ -44,7 +48,8 @@ submitButton.addEventListener('click', async (event) => {
             statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
             outputCode.textContent = '// Error occurred. Please try again.';
-            Prism.highlightElement(outputCode);
+            hljs.highlightElement(outputCode);
+            codePre.style.visibility = 'visible';
 
             submitButton.disabled = false;
             submitButton.textContent = 'Generate Bicep Template';
@@ -52,10 +57,10 @@ submitButton.addEventListener('click', async (event) => {
             return;
         }
 
+        // Process Server-Sent Events for progress updates
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let streamedCode = '';
 
         while (true) {
             const { done, value } = await reader.read();
@@ -74,22 +79,17 @@ submitButton.addEventListener('click', async (event) => {
                         const event = JSON.parse(jsonData);
 
                         if (event.status === 'progress') {
+                            // Update status message for progress updates
                             statusMessage.textContent = event.message;
                             statusMessage.className = 'text-sm text-blue-600 mb-4 font-semibold';
-                        } else if (event.status === 'streaming') {
-                            statusMessage.textContent = event.message;
-                            statusMessage.className = 'text-sm text-blue-600 mb-4 font-semibold';
-                            streamedCode = '';
-                            outputCode.textContent = '';
-                        } else if (event.status === 'chunk') {
-                            streamedCode += event.content;
-                            outputCode.textContent = streamedCode;
-                            Prism.highlightElement(outputCode);
                         } else if (event.status === 'complete') {
-                            const bicepCode = event.bicep || streamedCode || '// No code generated';
+                            // Set the final Bicep code (no streaming of content)
+                            const bicepCode = event.bicep || '// No code generated';
                             outputCode.textContent = bicepCode;
 
-                            Prism.highlightElement(outputCode);
+                            // Apply syntax highlighting first, then show the code
+                            hljs.highlightElement(outputCode);
+                            codePre.style.visibility = 'visible';
 
                             statusMessage.textContent = '✅ Template generated successfully!';
                             statusMessage.className = 'text-sm text-green-600 mb-4 font-semibold';
@@ -102,7 +102,8 @@ submitButton.addEventListener('click', async (event) => {
                             statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
                             outputCode.textContent = '// Error occurred. Please try again.';
-                            Prism.highlightElement(outputCode);
+                            hljs.highlightElement(outputCode);
+                            codePre.style.visibility = 'visible';
                         }
                     } catch (e) {
                         console.error('Error parsing SSE data:', e);
@@ -118,7 +119,8 @@ submitButton.addEventListener('click', async (event) => {
         statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
         outputCode.textContent = '// Network error occurred.';
-        Prism.highlightElement(outputCode);
+        hljs.highlightElement(outputCode);
+        codePre.style.visibility = 'visible';
 
     } finally {
         submitButton.disabled = false;
