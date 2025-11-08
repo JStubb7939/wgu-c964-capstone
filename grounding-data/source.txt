@@ -1,0 +1,8 @@
+The sources used to generate this grounding data are located in the
+Azure Bicep Registry Modules and Azure Resource Manager Schemas GitHub repositories.
+
+AVM RAG Data:
+https://github.com/Azure/bicep-registry-modules
+
+Classic Bicep Schema Data:
+https://github.com/Azure/azure-resource-manager-schemas

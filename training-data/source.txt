@@ -1,0 +1,4 @@
+The quickstart templates used to create this training data are located in 
+the Azure Quickstart Templates GitHub repository:
+
+https://github.com/Azure/azure-quickstart-templates

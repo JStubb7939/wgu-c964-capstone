@@ -34,6 +34,21 @@
                 <p class="text-sm text-gray-700 mb-6">This application combines fine-tuned AI models with Retrieval-Augmented Generation (RAG) to produce accurate, context-aware Bicep templates. Below are visualizations showing the training performance and data composition that power this system.</p>
                 
                 <div class="mb-6 p-4 bg-white rounded-lg border border-purple-200">
+                    <h3 class="text-md font-semibold text-gray-800 mb-3">System Architecture</h3>
+                    <div class="mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>What this shows:</strong> The complete end-to-end architecture of the Bicep template generation system, from user input to final code delivery.</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>How it works:</strong> When you submit a prompt, the system performs hybrid search across Azure AI Search to retrieve relevant context (AVM modules or ARM schemas based on your mode selection). This context is combined with your prompt and sent to the fine-tuned GPT-4o-mini agent, which generates structured JSON containing the plan, Bicep code, parameters, and warnings. The backend extracts the code and returns it back to your browser in real-time.</p>
+                        <p class="text-sm text-gray-700"><strong>Key components:</strong> Flask web app, Azure AI Search (semantic + vector search), fine-tuned Azure OpenAI agent, and a comprehensive knowledge base of 20,000+ documents.</p>
+                    </div>
+                    <div class="flex justify-center p-4 bg-gray-50 rounded">
+                        <img src="{{ url_for('static', filename='architecture-diagram.png') }}" 
+                             alt="System Architecture Diagram" 
+                             class="max-w-full h-auto"
+                             style="max-height: 500px;">
+                    </div>
+                </div>
+
+                <div class="mb-6 p-4 bg-white rounded-lg border border-purple-200">
                     <h3 class="text-md font-semibold text-gray-800 mb-3">RAG Data Source Composition</h3>
                     <div class="mb-3">
                         <p class="text-sm text-gray-700 mb-2"><strong>What this shows:</strong> The distribution of documentation in our Azure AI Search index that provides context to the AI agent during generation.</p>
