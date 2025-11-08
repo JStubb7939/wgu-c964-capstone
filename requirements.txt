@@ -1,8 +1,8 @@
 flask
 flask-compress
+flask-limiter
 openai
 azure-search-documents
 azure-identity
 gunicorn
-concurrent.futures
 matplotlib
