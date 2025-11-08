@@ -8,7 +8,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='azure_arm.png') }}">
 
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS for General Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Prism JS for Syntax Highlighting -->
@@ -18,13 +18,68 @@
 </head>
 <body class="bg-gray-100 min-h-screen py-8">
     <div class="container mx-auto max-w-4xl px-4">
-        <!-- Header -->
         <header class="mb-8">
             <h1 class="text-3xl font-bold text-gray-800 text-center">ARM Template Generator</h1>
             <p class="text-gray-600 text-center mt-2">Generate Bicep templates from natural language</p>
         </header>
 
-        <!-- Hideable Instructions -->
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleVisualizations()">
+                <h2 class="text-lg font-semibold text-purple-900">Model Training & Data Visualizations</h2>
+                <svg id="visualizations-arrow" class="w-5 h-5 text-purple-900 transition-transform rotate-[-90deg]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+            <div id="visualizations-content" class="mt-4" style="display: none;">
+                <p class="text-sm text-gray-700 mb-6">This application combines fine-tuned AI models with Retrieval-Augmented Generation (RAG) to produce accurate, context-aware Bicep templates. Below are visualizations showing the training performance and data composition that power this system.</p>
+                
+                <div class="mb-6 p-4 bg-white rounded-lg border border-purple-200">
+                    <h3 class="text-md font-semibold text-gray-800 mb-3">RAG Data Source Composition</h3>
+                    <div class="mb-3">
+                        <p class="text-sm text-gray-700 mb-2"><strong>What this shows:</strong> The distribution of documentation in our Azure AI Search index that provides context to the AI agent during generation.</p>
+                        <p class="text-sm text-gray-700 mb-2"><strong>Why it matters:</strong> The index contains over 20,000 documents combining classic ARM resource schemas (97.5%) with Azure Verified Module (AVM) documentation (2.5%). This comprehensive knowledge base allows the agent to generate both traditional Bicep resources and modern AVM-based templates.</p>
+                        <p class="text-sm text-gray-700"><strong>Impact:</strong> The large schema collection ensures broad resource coverage, while AVM modules provide best-practice implementations for common scenarios.</p>
+                    </div>
+                    <div class="flex justify-center p-4 bg-gray-50 rounded">
+                        <img src="{{ url_for('static', filename='rag_data_composition.png') }}" 
+                             alt="RAG Data Composition" 
+                             class="max-w-full h-auto"
+                             style="max-height: 400px;">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-white rounded-lg border border-purple-200">
+                        <h3 class="text-md font-semibold text-gray-800 mb-3">Training Loss</h3>
+                        <div class="mb-3">
+                            <p class="text-xs text-gray-700 mb-2"><strong>What this shows:</strong> How the model's prediction errors decreased over 157 training steps.</p>
+                            <p class="text-xs text-gray-700 mb-2"><strong>Why it matters:</strong> The steep initial drop and continued decline demonstrate that the model successfully learned to generate structured JSON outputs with valid Bicep code, plans, and warnings.</p>
+                            <p class="text-xs text-gray-700"><strong>Result:</strong> Final training loss of 0.0229 indicates high-quality, consistent outputs.</p>
+                        </div>
+                        <div class="flex justify-center p-3 bg-gray-50 rounded">
+                            <img src="{{ url_for('static', filename='training-loss-graph.png') }}" 
+                                 alt="Training Loss Graph" 
+                                 class="max-w-full h-auto">
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-white rounded-lg border border-purple-200">
+                        <h3 class="text-md font-semibold text-gray-800 mb-3">Training Accuracy</h3>
+                        <div class="mb-3">
+                            <p class="text-xs text-gray-700 mb-2"><strong>What this shows:</strong> The percentage of training examples where the model produced correct, properly-formatted responses.</p>
+                            <p class="text-xs text-gray-700 mb-2"><strong>Why it matters:</strong> The rapid climb to 100% accuracy shows the model mastered the task of generating valid JSON with correct Bicep syntax, proper parameter handling, and contextually appropriate warnings.</p>
+                            <p class="text-xs text-gray-700"><strong>Result:</strong> Perfect accuracy on training data, with strong generalization to new prompts.</p>
+                        </div>
+                        <div class="flex justify-center p-3 bg-gray-50 rounded">
+                            <img src="{{ url_for('static', filename='training-accuracy-graph.png') }}" 
+                                 alt="Training Accuracy Graph" 
+                                 class="max-w-full h-auto">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div class="flex items-center justify-between cursor-pointer" onclick="toggleInstructions()">
                 <h2 class="text-lg font-semibold text-blue-900">📖 How to Write Effective Prompts</h2>
@@ -58,14 +113,40 @@
                                 Use This
                             </button>
                         </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs text-gray-600 flex-1">• "Create a Key Vault with soft delete enabled and RBAC authorization"</span>
+                            <button onclick="useExample('Create a Key Vault with soft delete enabled and RBAC authorization')"
+                                    class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                Use This
+                            </button>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs text-gray-600 flex-1">• "Deploy a virtual network with three subnets for web, app, and database tiers"</span>
+                            <button onclick="useExample('Deploy a virtual network with three subnets for web, app, and database tiers')"
+                                    class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                Use This
+                            </button>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs text-gray-600 flex-1">• "Create a Linux VM with SSH authentication and managed identity enabled"</span>
+                            <button onclick="useExample('Create a Linux VM with SSH authentication and managed identity enabled')"
+                                    class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                Use This
+                            </button>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs text-gray-600 flex-1">• "Set up a container registry with admin access disabled and geo-replication"</span>
+                            <button onclick="useExample('Set up a container registry with admin access disabled and geo-replication')"
+                                    class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap">
+                                Use This
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Main Content -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <!-- Mode Toggle -->
             <div class="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <label class="block text-sm font-medium text-gray-700 mb-3">
                     Bicep Generation Mode:
@@ -88,7 +169,6 @@
                 </div>
             </div>
 
-            <!-- Input Section -->
             <div class="mb-6">
                 <label for="prompt-input" class="block text-sm font-medium text-gray-700 mb-2">
                     Enter your prompt:
@@ -101,7 +181,6 @@
                 ></textarea>
             </div>
 
-            <!-- Submit Button -->
             <div class="mb-6">
                 <button
                     id="submit-button"
@@ -111,10 +190,8 @@
                 </button>
             </div>
 
-            <!-- Status Message -->
             <p id="status-message" class="text-sm text-gray-600 mb-4"></p>
 
-            <!-- Output Section -->
             <div class="mb-4">
                 <div class="flex items-center justify-between mb-2">
                     <label class="block text-sm font-medium text-gray-700">
@@ -157,119 +234,10 @@
     <script>
         // Initialize Prism syntax highlighting
         Prism.highlightAll();
-
-        // Toggle instructions visibility
-        function toggleInstructions() {
-            const content = document.getElementById('instructions-content');
-            const arrow = document.getElementById('instructions-arrow');
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                arrow.style.transform = 'rotate(0deg)';
-            } else {
-                content.style.display = 'none';
-                arrow.style.transform = 'rotate(-90deg)';
-            }
-        }
-
-        // Word wrap toggle
-        let isWrapped = true;
-        function toggleWordWrap() {
-            const codePre = document.getElementById('code-pre');
-            const outputCode = document.getElementById('output-code');
-            const wrapToggle = document.getElementById('wrap-toggle');
-            const container = codePre.parentElement;
-
-            isWrapped = !isWrapped;
-
-            if (isWrapped) {
-                // Enable word wrap - allow wrapping but preserve indentation
-                codePre.style.whiteSpace = 'pre-wrap';
-                codePre.style.wordWrap = 'break-word';
-                codePre.style.overflowWrap = 'break-word';
-                codePre.style.maxWidth = '100%';
-                outputCode.style.whiteSpace = 'pre-wrap';
-                container.style.overflowX = 'hidden';
-                wrapToggle.textContent = 'Wrap: On';
-            } else {
-                // Disable word wrap - allow horizontal scroll
-                codePre.style.whiteSpace = 'pre';
-                codePre.style.wordWrap = 'normal';
-                codePre.style.overflowWrap = 'normal';
-                codePre.style.maxWidth = 'none';
-                outputCode.style.whiteSpace = 'pre';
-                container.style.overflowX = 'auto';
-                wrapToggle.textContent = 'Wrap: Off';
-            }
-        }
-
-        // Copy code to clipboard
-        function copyCode() {
-            const outputCode = document.getElementById('output-code');
-            const copyButton = document.getElementById('copy-button');
-            const codeText = outputCode.textContent;
-
-            // Use the Clipboard API
-            navigator.clipboard.writeText(codeText).then(() => {
-                // Show success feedback
-                const originalText = copyButton.textContent;
-                copyButton.textContent = '✓ Copied!';
-                copyButton.className = 'text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition';
-
-                // Reset button after 2 seconds
-                setTimeout(() => {
-                    copyButton.textContent = originalText;
-                    copyButton.className = 'text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition';
-                }, 2000);
-            }).catch(err => {
-                // Fallback: show error
-                console.error('Failed to copy:', err);
-                copyButton.textContent = '✗ Failed';
-                setTimeout(() => {
-                    copyButton.textContent = '📋 Copy';
-                }, 2000);
-            });
-        }
-
-        // Download code as .bicep file
-        function downloadCode() {
-            const outputCode = document.getElementById('output-code');
-            const downloadButton = document.getElementById('download-button');
-            const codeText = outputCode.textContent;
-
-            // Create a blob with the code content
-            const blob = new Blob([codeText], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-
-            // Create a temporary download link
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'template.bicep';
-
-            // Trigger download
-            document.body.appendChild(link);
-            link.click();
-
-            // Cleanup
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-
-            // Show success feedback
-            const originalText = downloadButton.textContent;
-            downloadButton.textContent = '✓ Downloaded!';
-            downloadButton.className = 'text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition';
-
-            // Reset button after 2 seconds
-            setTimeout(() => {
-                downloadButton.textContent = originalText;
-                downloadButton.className = 'text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition';
-            }, 2000);
-        }
     </script>
 
-    <!-- Main application JavaScript -->
     <script src="{{ url_for('static', filename='index.js') }}"></script>
 
-    <!-- Footer -->
     <footer class="mt-8 text-center text-sm text-gray-500">
         <p>Azure Bicep Template Generator v{{ version }}</p>
         <p class="mt-1">Powered by Azure OpenAI & Azure AI Search</p>
