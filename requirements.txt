@@ -1,4 +1,5 @@
-Flask
+flask
+flask-compress
 openai
 azure-search-documents
 azure-identity

@@ -3,6 +3,9 @@ import logging
 import json
 import time
 from flask import Flask, render_template, request, jsonify, Response
+from flask_compress import Compress
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -86,7 +89,6 @@ if AZURE_ENABLED:
 else:
     print("ℹ Running in local development mode (Azure environment variables not set)")
 
-# Read version from version.txt
 VERSION = "unknown"
 try:
     version_path = os.path.join(os.path.dirname(__file__), 'version.txt')
@@ -96,16 +98,22 @@ except Exception as e:
     print(f"⚠ Warning: Could not read version.txt: {e}")
 
 app = Flask(__name__)
+Compress(app)
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["100 per hour", "10 per minute"]
+)
 
 @app.route('/')
 def index():
     return render_template('index.html', version=VERSION)
 
-def generate_stream(user_query, unused_param, search_filter=None):
-    """Generator function that yields SSE events for progress updates
-    Note: unused_param is kept for backward compatibility but not used (agent uses AGENT_SYSTEM_MESSAGE)
-    """
+def generate_stream(user_query, search_filter=None):
     try:
+        start_time = time.time()
+
         yield f"data: {json.dumps({'status': 'progress', 'message': '🔍 Validating request...'})}\n\n"
         time.sleep(0.1)
 
@@ -141,19 +149,24 @@ output storageAccountId string = storageAccount.id
         app.logger.info(f"Performing AI Search with text: {user_query}")
         app.logger.info(f"Using search filter: {search_filter}")
 
+        search_start = time.time()
+
         search_results = search_client.search(
             search_text=user_query,
             filter=search_filter,
-            top=2,  # Reduced from 3 to minimize context size
+            top=5,
             query_type="semantic",
             semantic_configuration_name='avm-semantic-config',
+            select=["content"],
             vector_queries=[{
                 "kind": "text",
                 "text": user_query,
-                "k": 3,  # Reduced from 5 to minimize context size
+                "k": 3,
                 "fields": "vector"
             }]
         )
+
+        app.logger.info(f"Search took: {time.time() - search_start:.2f}s")
 
         # Extract and format the retrieved content
         yield f"data: {json.dumps({'status': 'progress', 'message': '📚 Processing search results...'})}\n\n"
@@ -217,6 +230,8 @@ output storageAccountId string = storageAccount.id
 
         app.logger.info(f"Estimated input tokens: {estimated_input_tokens}, max output tokens: {max_output_tokens}")
 
+        openai_start = time.time()
+
         response = openai_client.chat.completions.create(
             model=OPENAI_DEPLOYMENT_NAME,
             messages=[
@@ -228,6 +243,8 @@ output storageAccountId string = storageAccount.id
             max_tokens=max_output_tokens,
             timeout=60.0  # Add 60 second timeout to prevent hanging
         )
+
+        app.logger.info(f"OpenAI call took: {time.time() - openai_start:.2f}s")
 
         # Parse the JSON response from the model
         model_response_content = response.choices[0].message.content
@@ -269,6 +286,7 @@ output storageAccountId string = storageAccount.id
             generated_bicep = f"# ERROR: Model returned invalid JSON\n# {str(e)}"
 
         app.logger.info('Successfully generated Bicep code')
+        app.logger.info(f"Total request time: {time.time() - start_time:.2f}s")
 
         # Return the generated Bicep code
         yield f"data: {json.dumps({'status': 'complete', 'bicep': generated_bicep})}\n\n"
@@ -288,6 +306,7 @@ output storageAccountId string = storageAccount.id
         yield f"data: {json.dumps({'status': 'error', 'error': 'An error occurred while generating the Bicep template. Please try again or contact support if the problem persists.'})}\n\n"
 
 @app.route('/generate', methods=['POST'])
+@limiter.limit("5 per minute")  # 5 requests per minute per IP
 def generate():
     """Endpoint that streams progress updates using Server-Sent Events"""
     try:
@@ -332,9 +351,8 @@ def generate():
         app.logger.info(f'Augmented user query: {augmented_user_query}')
         app.logger.info(f'Mode: {mode}')
 
-        # Return SSE stream (note: system_message is no longer needed, agent uses AGENT_SYSTEM_MESSAGE)
         return Response(
-            generate_stream(augmented_user_query, None, search_filter),
+            generate_stream(augmented_user_query, search_filter),
             mimetype='text/event-stream',
             headers={
                 'Cache-Control': 'no-cache',

@@ -43,6 +43,7 @@
                     <div class="flex justify-center p-4 bg-gray-50 rounded">
                         <img src="{{ url_for('static', filename='architecture-diagram.png') }}"
                              alt="System Architecture Diagram"
+                             loading="lazy"
                              class="max-w-full h-auto"
                              style="max-height: 500px;">
                     </div>
@@ -247,7 +248,8 @@
     </div>
 
     <script>
-        // Initialize Highlight.js and register Bicep language
+        // Configure Highlight.js to only use Bicep
+        hljs.configure({languages: ['bicep']});
         hljs.highlightAll();
     </script>
 

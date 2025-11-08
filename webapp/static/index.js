@@ -4,8 +4,17 @@ const promptInput = document.getElementById('prompt-input');
 const statusMessage = document.getElementById('status-message');
 const outputCode = document.getElementById('output-code');
 
+let abortController = null;
+let isGenerating = false;
+
 submitButton.addEventListener('click', async (event) => {
     event.preventDefault();
+
+    if (isGenerating) {
+        return; // Prevent multiple simultaneous requests
+    }
+
+    isGenerating = true;
 
     const promptText = promptInput.value.trim();
     const modeAVM = document.getElementById('mode-avm').checked;
@@ -14,6 +23,7 @@ submitButton.addEventListener('click', async (event) => {
     if (!promptText) {
         statusMessage.textContent = 'Please enter a prompt.';
         statusMessage.className = 'text-sm text-red-600 mb-4';
+        isGenerating = false;
         return;
     }
 
@@ -29,6 +39,13 @@ submitButton.addEventListener('click', async (event) => {
     submitButton.className = 'w-full bg-gray-400 text-white py-2 px-4 rounded-md cursor-not-allowed transition';
 
     try {
+        // Cancel previous request if still running
+        if (abortController) {
+            abortController.abort();
+        }
+
+        abortController = new AbortController();
+
         const response = await fetch('/generate', {
             method: 'POST',
             headers: {
@@ -37,7 +54,8 @@ submitButton.addEventListener('click', async (event) => {
             body: JSON.stringify({
                 prompt: promptText,
                 mode: bicepMode
-            })
+            }),
+            signal: abortController.signal
         });
 
         if (!response.ok) {
@@ -54,6 +72,7 @@ submitButton.addEventListener('click', async (event) => {
             submitButton.disabled = false;
             submitButton.textContent = 'Generate Bicep Template';
             submitButton.className = 'w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition';
+            isGenerating = false;
             return;
         }
 
@@ -123,6 +142,7 @@ submitButton.addEventListener('click', async (event) => {
         codePre.style.visibility = 'visible';
 
     } finally {
+        isGenerating = false;
         submitButton.disabled = false;
         submitButton.textContent = 'Generate Template';
         submitButton.className = 'w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition';
