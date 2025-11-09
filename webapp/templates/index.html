@@ -279,8 +279,23 @@
                         </div>
                     </div>
                     <div class="bg-white p-3 rounded border border-gray-200">
-                        <p class="text-xs font-semibold text-gray-600 mb-1">Search Results</p>
-                        <p id="debug-search-results" class="text-sm text-gray-800">-</p>
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-xs font-semibold text-gray-600">Search Results</p>
+                            <button
+                                id="toggle-search-content-btn"
+                                onclick="toggleSearchContent()"
+                                class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded transition"
+                                title="Toggle search content visibility"
+                            >
+                                Show Content
+                            </button>
+                        </div>
+                        <p id="debug-search-results" class="text-sm text-gray-800 mb-2">-</p>
+                        <div id="search-content-container" class="hidden mt-2">
+                            <div class="bg-gray-900 rounded-md overflow-x-auto max-h-96 overflow-y-auto">
+                                <pre class="m-0 p-3 text-xs whitespace-pre"><code id="search-content-code" class="text-gray-300" style="tab-size: 4;">No search content available</code></pre>
+                            </div>
+                        </div>
                     </div>
                     <div class="bg-white p-3 rounded border border-gray-200">
                         <p class="text-xs font-semibold text-gray-600 mb-1">Context Size</p>

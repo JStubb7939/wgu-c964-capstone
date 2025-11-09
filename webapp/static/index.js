@@ -39,6 +39,13 @@ submitButton.addEventListener('click', async (event) => {
     document.getElementById('debug-context-size').textContent = '-';
     document.getElementById('debug-mode').textContent = '-';
 
+    // Reset search content and hide container
+    document.getElementById('search-content-code').textContent = 'No search content available';
+    const searchContentContainer = document.getElementById('search-content-container');
+    const toggleSearchBtn = document.getElementById('toggle-search-content-btn');
+    searchContentContainer.classList.add('hidden');
+    toggleSearchBtn.textContent = 'Show Content';
+
     // Hide the code output during generation
     const codePre = document.getElementById('code-pre');
     codePre.style.visibility = 'hidden';
@@ -124,6 +131,14 @@ submitButton.addEventListener('click', async (event) => {
                             document.getElementById('debug-search-results').textContent = debug.result_count + ' documents';
                             document.getElementById('debug-context-size').textContent = debug.context_size;
                             document.getElementById('debug-mode').textContent = bicepMode;
+
+                            // Update search content
+                            const searchContentCode = document.getElementById('search-content-code');
+                            if (debug.search_content && debug.search_content !== 'N/A' && debug.search_content !== 'N/A (cached)') {
+                                searchContentCode.textContent = debug.search_content;
+                            } else {
+                                searchContentCode.textContent = debug.search_content || 'No search content available';
+                            }
                         } else if (event.status === 'complete') {
                             // Set the final Bicep code (no streaming of content)
                             const bicepCode = event.bicep || '// No code generated';
@@ -223,6 +238,19 @@ function toggleDebug() {
     } else {
         content.classList.add('hidden');
         arrow.style.transform = 'rotate(-90deg)';
+    }
+}
+
+function toggleSearchContent() {
+    const container = document.getElementById('search-content-container');
+    const button = document.getElementById('toggle-search-content-btn');
+
+    if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        button.textContent = 'Hide Content';
+    } else {
+        container.classList.add('hidden');
+        button.textContent = 'Show Content';
     }
 }
 

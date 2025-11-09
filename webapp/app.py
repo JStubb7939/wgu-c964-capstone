@@ -352,7 +352,8 @@ output storageAccountId string = storageAccount.id
             'ai_time': f"{openai_duration:.2f}s" if 'openai_duration' in locals() else 'N/A',
             'total_time': f"{total_time:.2f}s",
             'result_count': result_count if 'result_count' in locals() else 0,
-            'context_size': f"{total_context_chars} chars (~{total_context_chars // 4} tokens)" if 'total_context_chars' in locals() else 'N/A'
+            'context_size': f"{total_context_chars} chars (~{total_context_chars // 4} tokens)" if 'total_context_chars' in locals() else 'N/A',
+            'search_content': retrieved_content if 'retrieved_content' in locals() else 'N/A'
         }
         yield f"data: {json.dumps({'status': 'debug', 'debug': debug_info})}\n\n"
 
@@ -436,7 +437,8 @@ def generate():
                     'ai_time': '0.00s',
                     'total_time': '~0.01s',
                     'result_count': 'N/A (cached)',
-                    'context_size': 'N/A (cached)'
+                    'context_size': 'N/A (cached)',
+                    'search_content': 'N/A (cached)'
                 }
                 yield f"data: {json.dumps({'status': 'debug', 'debug': debug_info})}\n\n"
                 yield f"data: {json.dumps({'status': 'complete', 'bicep': cached_bicep})}\n\n"
