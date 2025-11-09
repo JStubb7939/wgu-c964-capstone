@@ -213,7 +213,9 @@ output storageAccountId string = storageAccount.id
             }]
         )
 
-        app.logger.info(f"Search took: {time.time() - search_start:.2f}s")
+        search_end = time.time()
+        search_duration = search_end - search_start
+        app.logger.info(f"Search took: {search_duration:.2f}s")
 
         # Extract and format the retrieved content
         yield f"data: {json.dumps({'status': 'progress', 'message': '📚 Processing search results...'})}\n\n"
@@ -291,7 +293,9 @@ output storageAccountId string = storageAccount.id
             timeout=60.0  # Add 60 second timeout to prevent hanging
         )
 
-        app.logger.info(f"OpenAI call took: {time.time() - openai_start:.2f}s")
+        openai_end = time.time()
+        openai_duration = openai_end - openai_start
+        app.logger.info(f"OpenAI call took: {openai_duration:.2f}s")
 
         # Parse the JSON response from the model
         model_response_content = response.choices[0].message.content
@@ -344,8 +348,8 @@ output storageAccountId string = storageAccount.id
         # Send debug information
         debug_info = {
             'cache_hit': False,
-            'search_time': f"{time.time() - search_start:.2f}s" if 'search_start' in locals() else 'N/A',
-            'ai_time': f"{time.time() - openai_start:.2f}s" if 'openai_start' in locals() else 'N/A',
+            'search_time': f"{search_duration:.2f}s" if 'search_duration' in locals() else 'N/A',
+            'ai_time': f"{openai_duration:.2f}s" if 'openai_duration' in locals() else 'N/A',
             'total_time': f"{total_time:.2f}s",
             'result_count': result_count if 'result_count' in locals() else 0,
             'context_size': f"{total_context_chars} chars (~{total_context_chars // 4} tokens)" if 'total_context_chars' in locals() else 'N/A'

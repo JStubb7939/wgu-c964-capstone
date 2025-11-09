@@ -56,11 +56,13 @@
                         <p class="text-sm text-gray-700 mb-2"><strong>Why it matters:</strong> The index contains over 20,000 documents combining classic ARM resource schemas (97.5%) with Azure Verified Module (AVM) documentation (2.5%). This comprehensive knowledge base allows the agent to generate both traditional Bicep resources and modern AVM-based templates.</p>
                         <p class="text-sm text-gray-700"><strong>Impact:</strong> The large schema collection ensures broad resource coverage, while AVM modules provide best-practice implementations for common scenarios.</p>
                     </div>
-                    <div class="flex justify-center p-4 bg-gray-50 rounded">
+                    <div class="flex justify-center p-4">
                         <img src="{{ url_for('static', filename='rag_data_composition.png') }}"
                              alt="RAG Data Composition"
-                             class="max-w-full h-auto"
-                             style="max-height: 400px;">
+                             class="max-w-full h-auto cursor-pointer hover:opacity-80 transition-opacity"
+                             style="max-height: 400px;"
+                             onclick="openImageModal(this)"
+                             title="Click to enlarge">
                     </div>
                 </div>
 
@@ -75,7 +77,9 @@
                         <div class="flex justify-center p-3 bg-gray-50 rounded">
                             <img src="{{ url_for('static', filename='training-loss-graph.png') }}"
                                  alt="Training Loss Graph"
-                                 class="max-w-full h-auto">
+                                 class="max-w-full h-auto cursor-pointer hover:opacity-80 transition-opacity"
+                                 onclick="openImageModal(this)"
+                                 title="Click to enlarge">
                         </div>
                     </div>
 
@@ -89,7 +93,9 @@
                         <div class="flex justify-center p-3 bg-gray-50 rounded">
                             <img src="{{ url_for('static', filename='training-accuracy-graph.png') }}"
                                  alt="Training Accuracy Graph"
-                                 class="max-w-full h-auto">
+                                 class="max-w-full h-auto cursor-pointer hover:opacity-80 transition-opacity"
+                                 onclick="openImageModal(this)"
+                                 title="Click to enlarge">
                         </div>
                     </div>
                 </div>
@@ -241,9 +247,7 @@
                     </div>
                 </div>
                 <div class="bg-gray-900 rounded-md overflow-x-auto">
-                    <pre id="code-pre" class="m-0 p-4 whitespace-pre-wrap break-words tab-[4]">
-                        <code id="output-code" class="language-bicep hljs">// Generated code will appear here...</code>
-                    </pre>
+                    <pre id="code-pre" class="m-0 p-4 whitespace-pre-wrap break-words" style="tab-size: 4;"><code id="output-code" class="language-bicep hljs" style="tab-size: 4;">// Generated code will appear here...</code></pre>
                 </div>
             </div>
 
@@ -298,6 +302,14 @@
     </script>
 
     <script src="{{ url_for('static', filename='index.js') }}"></script>
+
+    <!-- Image Modal for enlarged view -->
+    <div id="image-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4" onclick="closeImageModal()">
+        <div class="relative max-w-7xl max-h-full">
+            <button onclick="closeImageModal()" class="absolute -top-10 right-0 text-white hover:text-gray-300 text-3xl font-bold">&times;</button>
+            <img id="modal-image" src="" alt="" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl">
+        </div>
+    </div>
 
     <footer class="mt-8 text-center text-sm text-gray-500">
         <p>Azure Bicep Template Generator v{{ version }}</p>

@@ -75,6 +75,7 @@ submitButton.addEventListener('click', async (event) => {
             statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
             outputCode.textContent = '// Error occurred. Please try again.';
+            outputCode.className = 'language-bicep';
             hljs.highlightElement(outputCode);
             codePre.style.visibility = 'visible';
 
@@ -128,6 +129,9 @@ submitButton.addEventListener('click', async (event) => {
                             const bicepCode = event.bicep || '// No code generated';
                             outputCode.textContent = bicepCode;
 
+                            // Remove any previous highlighting classes
+                            outputCode.className = 'language-bicep';
+
                             // Apply syntax highlighting first, then show the code
                             hljs.highlightElement(outputCode);
                             codePre.style.visibility = 'visible';
@@ -143,6 +147,7 @@ submitButton.addEventListener('click', async (event) => {
                             statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
                             outputCode.textContent = '// Error occurred. Please try again.';
+                            outputCode.className = 'language-bicep';
                             hljs.highlightElement(outputCode);
                             codePre.style.visibility = 'visible';
                         }
@@ -160,6 +165,7 @@ submitButton.addEventListener('click', async (event) => {
         statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
         outputCode.textContent = '// Network error occurred.';
+        outputCode.className = 'language-bicep';
         hljs.highlightElement(outputCode);
         codePre.style.visibility = 'visible';
 
@@ -223,17 +229,15 @@ function toggleDebug() {
 let isWrapped = true;
 function toggleWordWrap() {
     const codePre = document.getElementById('code-pre');
-    const outputCode = document.getElementById('output-code');
     const wrapToggle = document.getElementById('wrap-toggle');
-    const container = codePre.parentElement;
 
     isWrapped = !isWrapped;
 
     if (isWrapped) {
-        codePre.className = 'm-0 p-4 whitespace-pre-wrap break-words tab-[4]';
+        codePre.className = 'm-0 p-4 whitespace-pre-wrap break-words';
         wrapToggle.textContent = 'Wrap: On';
     } else {
-        codePre.className = 'm-0 p-4 whitespace-pre overflow-x-auto tab-[4]';
+        codePre.className = 'm-0 p-4 whitespace-pre overflow-x-auto';
         wrapToggle.textContent = 'Wrap: Off';
     }
 }
@@ -288,3 +292,31 @@ function downloadCode() {
         downloadButton.className = 'text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition';
     }, 2000);
 }
+
+// Image modal functions
+function openImageModal(imgElement) {
+    const modal = document.getElementById('image-modal');
+    const modalImage = document.getElementById('modal-image');
+
+    modalImage.src = imgElement.src;
+    modalImage.alt = imgElement.alt;
+    modal.classList.remove('hidden');
+
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImageModal() {
+    const modal = document.getElementById('image-modal');
+    modal.classList.add('hidden');
+
+    // Restore body scroll
+    document.body.style.overflow = 'auto';
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeImageModal();
+    }
+});
