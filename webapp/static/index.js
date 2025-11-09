@@ -30,6 +30,15 @@ submitButton.addEventListener('click', async (event) => {
     statusMessage.textContent = 'Starting...';
     statusMessage.className = 'text-sm text-blue-600 mb-4 font-semibold';
 
+    // Reset debug information
+    document.getElementById('debug-cache-status').textContent = '-';
+    document.getElementById('debug-total-time').textContent = '-';
+    document.getElementById('debug-search-time').textContent = '-';
+    document.getElementById('debug-ai-time').textContent = '-';
+    document.getElementById('debug-search-results').textContent = '-';
+    document.getElementById('debug-context-size').textContent = '-';
+    document.getElementById('debug-mode').textContent = '-';
+
     // Hide the code output during generation
     const codePre = document.getElementById('code-pre');
     codePre.style.visibility = 'hidden';
@@ -101,6 +110,19 @@ submitButton.addEventListener('click', async (event) => {
                             // Update status message for progress updates
                             statusMessage.textContent = event.message;
                             statusMessage.className = 'text-sm text-blue-600 mb-4 font-semibold';
+                        } else if (event.status === 'debug') {
+                            // Update debug information
+                            const debug = event.debug;
+                            const modeAVM = document.getElementById('mode-avm').checked;
+                            const bicepMode = modeAVM ? 'AVM' : 'Classic';
+
+                            document.getElementById('debug-cache-status').textContent = debug.cache_hit ? '✅ Cache Hit' : '❌ Cache Miss';
+                            document.getElementById('debug-total-time').textContent = debug.total_time;
+                            document.getElementById('debug-search-time').textContent = debug.search_time;
+                            document.getElementById('debug-ai-time').textContent = debug.ai_time;
+                            document.getElementById('debug-search-results').textContent = debug.result_count + ' documents';
+                            document.getElementById('debug-context-size').textContent = debug.context_size;
+                            document.getElementById('debug-mode').textContent = bicepMode;
                         } else if (event.status === 'complete') {
                             // Set the final Bicep code (no streaming of content)
                             const bicepCode = event.bicep || '// No code generated';
@@ -186,6 +208,18 @@ function toggleInstructions() {
     }
 }
 
+function toggleDebug() {
+    const content = document.getElementById('debug-content');
+    const arrow = document.getElementById('debug-arrow');
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        arrow.style.transform = 'rotate(0deg)';
+    } else {
+        content.classList.add('hidden');
+        arrow.style.transform = 'rotate(-90deg)';
+    }
+}
+
 let isWrapped = true;
 function toggleWordWrap() {
     const codePre = document.getElementById('code-pre');
@@ -196,20 +230,10 @@ function toggleWordWrap() {
     isWrapped = !isWrapped;
 
     if (isWrapped) {
-        codePre.style.whiteSpace = 'pre-wrap';
-        codePre.style.wordWrap = 'break-word';
-        codePre.style.overflowWrap = 'break-word';
-        codePre.style.maxWidth = '100%';
-        outputCode.style.whiteSpace = 'pre-wrap';
-        container.style.overflowX = 'hidden';
+        codePre.className = 'm-0 p-4 whitespace-pre-wrap break-words tab-[4]';
         wrapToggle.textContent = 'Wrap: On';
     } else {
-        codePre.style.whiteSpace = 'pre';
-        codePre.style.wordWrap = 'normal';
-        codePre.style.overflowWrap = 'normal';
-        codePre.style.maxWidth = 'none';
-        outputCode.style.whiteSpace = 'pre';
-        container.style.overflowX = 'auto';
+        codePre.className = 'm-0 p-4 whitespace-pre overflow-x-auto tab-[4]';
         wrapToggle.textContent = 'Wrap: Off';
     }
 }

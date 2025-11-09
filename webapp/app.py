@@ -333,12 +333,24 @@ output storageAccountId string = storageAccount.id
             generated_bicep = f"# ERROR: Model returned invalid JSON\n# {str(e)}"
 
         app.logger.info('Successfully generated Bicep code')
-        app.logger.info(f"Total request time: {time.time() - start_time:.2f}s")
+        total_time = time.time() - start_time
+        app.logger.info(f"Total request time: {total_time:.2f}s")
 
         if cache_key:
             # Cache the generated Bicep code
             add_to_cache(cache_key, generated_bicep)
             app.logger.info(f"Cached response for key: {cache_key}")
+
+        # Send debug information
+        debug_info = {
+            'cache_hit': False,
+            'search_time': f"{time.time() - search_start:.2f}s" if 'search_start' in locals() else 'N/A',
+            'ai_time': f"{time.time() - openai_start:.2f}s" if 'openai_start' in locals() else 'N/A',
+            'total_time': f"{total_time:.2f}s",
+            'result_count': result_count if 'result_count' in locals() else 0,
+            'context_size': f"{total_context_chars} chars (~{total_context_chars // 4} tokens)" if 'total_context_chars' in locals() else 'N/A'
+        }
+        yield f"data: {json.dumps({'status': 'debug', 'debug': debug_info})}\n\n"
 
         # Return the generated Bicep code
         yield f"data: {json.dumps({'status': 'complete', 'bicep': generated_bicep})}\n\n"
@@ -413,6 +425,16 @@ def generate():
 
             def send_cached_response():
                 yield f"data: {json.dumps({'status': 'progress', 'message': '⚡ Retrieved from cache...'})}\n\n"
+                # Send debug info for cached response
+                debug_info = {
+                    'cache_hit': True,
+                    'search_time': '0.00s',
+                    'ai_time': '0.00s',
+                    'total_time': '~0.01s',
+                    'result_count': 'N/A (cached)',
+                    'context_size': 'N/A (cached)'
+                }
+                yield f"data: {json.dumps({'status': 'debug', 'debug': debug_info})}\n\n"
                 yield f"data: {json.dumps({'status': 'complete', 'bicep': cached_bicep})}\n\n"
 
             return Response(
