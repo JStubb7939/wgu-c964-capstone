@@ -9,37 +9,6 @@ const outputCode = document.getElementById('output-code');
 let abortController = null;
 let isGenerating = false;
 
-// Helper function to apply Shiki syntax highlighting
-async function applyHighlighting(codeElement, code, lang = 'bicep') {
-    // Wait for Shiki to be ready
-    let attempts = 0;
-    while (!window.shikiHighlighter && attempts < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-    }
-
-    if (window.shikiHighlighter) {
-        try {
-            const highlighted = window.shikiHighlighter.codeToHtml(code, { lang });
-            // Extract just the code content from the HTML
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = highlighted;
-            const preElement = tempDiv.querySelector('pre');
-            if (preElement) {
-                codeElement.innerHTML = preElement.querySelector('code').innerHTML;
-            } else {
-                codeElement.textContent = code;
-            }
-        } catch (error) {
-            console.error('Highlighting error:', error);
-            codeElement.textContent = code;
-        }
-    } else {
-        console.warn('Shiki not available, showing plain text');
-        codeElement.textContent = code;
-    }
-}
-
 submitButton.addEventListener('click', async (event) => {
     event.preventDefault();
 
@@ -114,8 +83,8 @@ submitButton.addEventListener('click', async (event) => {
             statusMessage.textContent = errorMessage;
             statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
-            const errorCode = '// Error occurred. Please try again.';
-            await applyHighlighting(outputCode, errorCode);
+            outputCode.textContent = '// Error occurred. Please try again.';
+            Prism.highlightElement(outputCode);
             codePre.style.visibility = 'visible';
 
             submitButton.disabled = false;
@@ -174,11 +143,11 @@ submitButton.addEventListener('click', async (event) => {
                         } else if (event.status === 'complete') {
                             // Set the final Bicep code (no streaming of content)
                             const bicepCode = event.bicep || '// No code generated';
+                            outputCode.textContent = bicepCode;
 
                             // Apply syntax highlighting first, then show the code
-                            applyHighlighting(outputCode, bicepCode).then(() => {
-                                codePre.style.visibility = 'visible';
-                            });
+                            Prism.highlightElement(outputCode);
+                            codePre.style.visibility = 'visible';
 
                             statusMessage.textContent = '✅ Template generated successfully!';
                             statusMessage.className = 'text-sm text-green-600 mb-4 font-semibold';
@@ -190,10 +159,9 @@ submitButton.addEventListener('click', async (event) => {
                             statusMessage.textContent = event.error;
                             statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
-                            const errorCode = '// Error occurred. Please try again.';
-                            applyHighlighting(outputCode, errorCode).then(() => {
-                                codePre.style.visibility = 'visible';
-                            });
+                            outputCode.textContent = '// Error occurred. Please try again.';
+                            Prism.highlightElement(outputCode);
+                            codePre.style.visibility = 'visible';
                         }
                     } catch (e) {
                         console.error('Error parsing SSE data:', e);
@@ -208,10 +176,9 @@ submitButton.addEventListener('click', async (event) => {
         statusMessage.textContent = `Network error: ${error.message}. Please check your connection and try again.`;
         statusMessage.className = 'text-sm text-red-600 mb-4 font-semibold';
 
-        const errorCode = '// Network error occurred.';
-        applyHighlighting(outputCode, errorCode).then(() => {
-            codePre.style.visibility = 'visible';
-        });
+        outputCode.textContent = '// Network error occurred.';
+        Prism.highlightElement(outputCode);
+        codePre.style.visibility = 'visible';
 
     } finally {
         isGenerating = false;
@@ -283,18 +250,25 @@ function toggleSearchContent() {
     }
 }
 
-let isWrapped = true;
+let isWrapped = false; // Start with wrap OFF to preserve indentation
 function toggleWordWrap() {
     const codePre = document.getElementById('code-pre');
+    const outputCode = document.getElementById('output-code');
     const wrapToggle = document.getElementById('wrap-toggle');
 
     isWrapped = !isWrapped;
 
     if (isWrapped) {
-        codePre.className = 'shiki github-dark m-0 p-4 whitespace-pre-wrap break-words';
+        codePre.style.whiteSpace = 'pre-wrap';
+        codePre.style.wordWrap = 'break-word';
+        codePre.style.overflowWrap = 'break-word';
+        outputCode.style.whiteSpace = 'pre-wrap';
         wrapToggle.textContent = 'Wrap: On';
     } else {
-        codePre.className = 'shiki github-dark m-0 p-4 whitespace-pre overflow-x-auto';
+        codePre.style.whiteSpace = 'pre';
+        codePre.style.wordWrap = 'normal';
+        codePre.style.overflowWrap = 'normal';
+        outputCode.style.whiteSpace = 'pre';
         wrapToggle.textContent = 'Wrap: Off';
     }
 }

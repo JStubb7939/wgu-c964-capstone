@@ -11,8 +11,8 @@
     <!-- Tailwind CSS for General Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Shiki Syntax Highlighting (powers Torchlight) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shiki@0.14.7/themes/github-dark.css">
+    <!-- PrismJS for Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/themes/prism-tomorrow.min.css">
 </head>
 <body class="bg-gray-100 min-h-screen py-8">
     <div class="container mx-auto max-w-4xl px-4">
@@ -245,7 +245,7 @@
                     </div>
                 </div>
                 <div class="bg-gray-900 rounded-md overflow-x-auto">
-                    <pre id="code-pre" class="shiki github-dark m-0 p-4 whitespace-pre-wrap break-words" style="background-color: #0d1117; tab-size: 4;"><code id="output-code" class="language-bicep" style="tab-size: 4; color: #c9d1d9;">// Generated code will appear here...</code></pre>
+                    <pre id="code-pre" class="m-0 p-4" style="white-space: pre; tab-size: 2;"><code id="output-code" class="language-bicep" style="white-space: pre; tab-size: 2;">// Generated code will appear here...</code></pre>
                 </div>
             </div>
 
@@ -308,43 +308,9 @@
         </div>
     </div>
 
-    <!-- Shiki Highlighter Script -->
-    <script type="module">
-        import { getHighlighter } from 'https://cdn.jsdelivr.net/npm/shiki@0.14.7/dist/index.browser.mjs';
-
-        // Initialize Shiki highlighter globally
-        window.shikiHighlighter = null;
-
-        (async () => {
-            try {
-                window.shikiHighlighter = await getHighlighter({
-                    theme: 'github-dark',
-                    langs: ['bicep', 'json', 'javascript', 'typescript']
-                });
-                console.log('✓ Shiki highlighter loaded');
-            } catch (error) {
-                console.error('Failed to load Shiki highlighter:', error);
-            }
-        })();
-
-        // Global function to highlight code
-        window.highlightCode = function(code, lang = 'bicep') {
-            if (!window.shikiHighlighter) {
-                console.warn('Shiki not ready, returning plain code');
-                return code;
-            }
-
-            try {
-                const html = window.shikiHighlighter.codeToHtml(code, { lang });
-                return html;
-            } catch (error) {
-                console.error('Highlighting error:', error);
-                return code;
-            }
-        };
-    </script>
-
     <script src="{{ url_for('static', filename='index.js') }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/components/prism-bicep.min.js"></script>
 
     <!-- Image Modal for enlarged view -->
     <div id="image-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4" onclick="closeImageModal()">
