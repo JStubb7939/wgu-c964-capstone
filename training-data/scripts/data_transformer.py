@@ -26,7 +26,6 @@ def _coerce_default(value: str):
     if stripped.startswith("'") and stripped.endswith("'"):
         return stripped[1:-1]
 
-    # Attempt numeric conversion
     try:
         if '.' in stripped:
             return float(stripped)
