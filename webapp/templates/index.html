@@ -51,7 +51,7 @@
                 </div>
 
                 <div class="mb-6 p-4 bg-white rounded-lg border border-purple-200">
-                    <h3 class="text-md font-semibold text-gray-800 mb-3">System Architecture</h3>
+                    <h3 class="text-md font-semibold text-gray-800 mb-3">Request Flow Diagram</h3>
                     <div class="mb-3">
                         <p class="text-sm text-gray-700 mb-2"><strong>What this shows:</strong> The complete end-to-end request flow of the Bicep template generation application, from user input to final code delivery.</p>
                         <p class="text-sm text-gray-700 mb-2"><strong>How it works:</strong> When you submit a prompt, the system performs hybrid search across Azure AI Search to retrieve relevant context (AVM modules or ARM schemas based on your mode selection). This context is combined with your prompt and sent to the fine-tuned GPT-4.1-mini agent, which generates structured JSON containing the plan, Bicep code, parameters, and warnings. The backend extracts the code and returns it back to your browser in real-time.</p>
