@@ -24,7 +24,7 @@ A web application that generates Azure Bicep Infrastructure as Code (IaC) templa
 - **Backend**: Python Flask 3.x
 - **Frontend**: HTML, JavaScript, Tailwind CSS, Prism.js
 - **AI Services**:
-  - Azure OpenAI (Fine-tuned GPT-4o-mini agent model)
+  - Azure OpenAI (Fine-tuned GPT-4.1-mini agent model)
   - Azure AI Search (semantic + vector hybrid search)
 - **Authentication**: Azure Managed Identity (DefaultAzureCredential)
 - **Deployment**: Docker container on Azure Container Apps
@@ -318,11 +318,9 @@ wgu-c964-capstone/
 │   └── scripts/                 # Data extraction scripts
 ├── training-data/               # Fine-tuning datasets for agent model
 │   ├── train_agent.jsonl
-│   ├── training_set.jsonl
-│   ├── validation_set.jsonl
+│   ├── train_agent_training.jsonl
+│   ├── train_agent_validation.jsonl
 │   └── scripts/                 # Training data processing scripts
-├── infrastructure/              # Azure infrastructure as code
-│   └── main.bicep               # Bicep template for Azure deployment
 └── webapp/                      # Flask web application
     ├── app.py                   # Flask application with agentic RAG pipeline
     ├── requirements.txt         # Web app Python dependencies
@@ -330,13 +328,16 @@ wgu-c964-capstone/
     ├── version.txt              # Application version
     ├── build.ps1                # PowerShell build automation script
     ├── build.sh                 # Bash build automation script
-    ├── APP_UPDATE_NOTES.md      # Technical documentation on agentic transition
-    ├── TESTING_GUIDE.py         # Testing checklist and examples
     ├── templates/
     │   └── index.html           # Main UI template with AVM/Classic toggle
     └── static/
         ├── index.js             # Client-side JavaScript with SSE handling
         └── azure_arm.png        # Favicon
+        └── architecture_diagram.png
+        └── rag_data_composition.png
+        └── request-flow.png
+        └── training-accuracy-graph.png
+        └── training-loss-graph.png
 ```
 
 ## API Endpoints
@@ -398,12 +399,14 @@ Search configuration:
 - Context truncation: Max 3000 chars per document (~750 tokens)
 
 **Search Filters**:
+
 - AVM mode: `search.ismatch('AVM Module', 'content')`
 - Classic mode: `search.ismatch('ARM Schema', 'content')`
 
 ### Agent System Message
 
 The application uses a single `AGENT_SYSTEM_MESSAGE` that instructs the model to:
+
 - Return only valid JSON (no markdown, no conversation)
 - Prioritize AVM modules when requested
 - Use classic Bicep when requested
@@ -411,6 +414,7 @@ The application uses a single `AGENT_SYSTEM_MESSAGE` that instructs the model to
 - Include plan, files, and warnings in structured output
 
 **API Configuration**:
+
 - API Version: `2024-02-15-preview` (supports JSON mode)
 - Response Format: `{"type": "json_object"}` (forces JSON output)
 - Temperature: `0.1` (deterministic for consistent JSON)
@@ -446,7 +450,7 @@ The application uses a single `AGENT_SYSTEM_MESSAGE` that instructs the model to
 ### Rate Limiting / Token Limits
 
 - **Cause**: Exceeded OpenAI API quota or token context window
-- **Solution**: 
+- **Solution**:
   - Context is automatically truncated to 3000 chars per document
   - Max output tokens calculated dynamically with safety buffer
   - Search reduced to 2 results to minimize input tokens
@@ -467,7 +471,7 @@ The application uses a single `AGENT_SYSTEM_MESSAGE` that instructs the model to
 - **Search Latency**: Hybrid search typically ~100-500ms
 - **Agent Generation**: Non-streaming JSON mode, typically 3-8 seconds depending on complexity
 - **Total Time**: Expect 4-10 seconds end-to-end for most requests
-- **Context Optimization**: 
+- **Context Optimization**:
   - Limited to 2 search results
   - Each document truncated to 3000 chars
   - Total context kept under ~8000 tokens
@@ -477,9 +481,10 @@ The application uses a single `AGENT_SYSTEM_MESSAGE` that instructs the model to
 ## Fine-Tuning Details
 
 The agent model is fine-tuned on:
+
 - **Training Data**: Azure Verified Module examples and ARM template patterns
 - **Format**: JSON-structured training examples with plan/files/warnings schema
-- **Base Model**: GPT-4o-mini (efficient for structured outputs)
+- **Base Model**: GPT-4.1-mini (efficient for structured outputs)
 - **Specialization**: Bicep syntax, AVM module usage, parameter patterns, best practices
 
 See `training-data/` directory for training datasets and `webapp/APP_UPDATE_NOTES.md` for technical implementation details.
@@ -495,4 +500,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Uses [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/)
 - Syntax highlighting by [Prism.js](https://prismjs.com/)
 - Styled with [Tailwind CSS](https://tailwindcss.com/)
-

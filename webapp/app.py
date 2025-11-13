@@ -1,31 +1,21 @@
-import hashlib
 import json
 import logging
 import os
 import tiktoken
 import time
 import uuid
-from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, Response
 from flask_compress import Compress
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Configure response caching
-response_cache = {}
-CACHE_MAX_SIZE = 100
-CACHE_TTL_SECONDS = 3600  # 1 hour
-
-# Configuration constants from environment variables
 SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_SERVICE_ENDPOINT")
 SEARCH_INDEX_NAME = os.getenv("AZURE_SEARCH_INDEX_NAME")
 OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 
-# Agent system message for the new fine-tuned model
 AGENT_SYSTEM_MESSAGE = """
 You are an expert Azure Bicep assistant. Your sole purpose is to generate accurate and best-practice Bicep code based *only* on the user's request and the provided context documents.
 
@@ -55,10 +45,8 @@ You MUST follow these rules strictly:
 ```
 """
 
-# Check if running in Azure (all required environment variables are set)
 AZURE_ENABLED = all([SEARCH_ENDPOINT, SEARCH_INDEX_NAME, OPENAI_ENDPOINT, OPENAI_DEPLOYMENT_NAME])
 
-# Initialize Azure clients only if Azure is enabled
 search_client = None
 openai_client = None
 
@@ -68,17 +56,14 @@ if AZURE_ENABLED:
         from azure.search.documents import SearchClient
         from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
-        # Initialize Azure credential
         credential = DefaultAzureCredential()
 
-        # Initialize Azure Search client
         search_client = SearchClient(
             endpoint=SEARCH_ENDPOINT,
             index_name=SEARCH_INDEX_NAME,
             credential=credential
         )
 
-        # Initialize Azure OpenAI client
         token_provider = get_bearer_token_provider(
             credential,
             "https://cognitiveservices.azure.com/.default"
@@ -86,7 +71,7 @@ if AZURE_ENABLED:
 
         openai_client = AzureOpenAI(
             azure_endpoint=OPENAI_ENDPOINT,
-            api_version="2024-02-15-preview",  # Updated for JSON mode support
+            api_version="2024-02-15-preview",
             azure_ad_token_provider=token_provider
         )
 
@@ -124,52 +109,24 @@ try:
 except:
     encoding = None
 
-def get_cache_key(prompt, mode):
-    """Generate cache key from prompt and mode"""
-    content = f"{prompt.lower().strip()}:{mode}".encode('utf-8')
-    return hashlib.md5(content).hexdigest()
-
-def get_from_cache(cache_key):
-    """Get response from cache if valid"""
-    if cache_key in response_cache:
-        cached_data, timestamp = response_cache[cache_key]
-        if time.time() - timestamp < CACHE_TTL_SECONDS:
-            return cached_data
-        else:
-            # Remove expired entry
-            del response_cache[cache_key]
-    return None
-
-def add_to_cache(cache_key, response_data):
-    """Add response to cache with size limit"""
-    # Remove oldest entries if cache is full
-    if len(response_cache) >= CACHE_MAX_SIZE:
-        oldest_key = min(response_cache.keys(), key=lambda k: response_cache[k][1])
-        del response_cache[oldest_key]
-
-    response_cache[cache_key] = (response_data, time.time())
-
 def count_tokens(text):
     """More accurate token counting"""
     if encoding:
         return len(encoding.encode(text))
     else:
-        # Fallback to character estimation
         return len(text) // 4
 
-def generate_stream(user_query, cache_key=None, search_filter=None):
+def generate_stream(user_query, search_filter=None):
     try:
         start_time = time.time()
 
         yield f"data: {json.dumps({'status': 'progress', 'message': '🔍 Validating request...'})}\n\n"
         time.sleep(0.1)
 
-        # Check if Azure services are available
         if not AZURE_ENABLED:
             yield f"data: {json.dumps({'status': 'progress', 'message': '⚠️ Running in local development mode...'})}\n\n"
             time.sleep(0.5)
 
-            # Return a dummy response for local development
             dummy_bicep = f"""// Local development mode - Azure services not configured
 // Received prompt: {user_query}
 
@@ -201,14 +158,14 @@ output storageAccountId string = storageAccount.id
         search_results = search_client.search(
             search_text=user_query,
             filter=search_filter,
-            top=5,
+            top=3,
             query_type="semantic",
             semantic_configuration_name='avm-semantic-config',
             select=["content"],
             vector_queries=[{
                 "kind": "text",
                 "text": user_query,
-                "k": 3,
+                "k": 5,
                 "fields": "vector"
             }]
         )
@@ -227,14 +184,6 @@ output storageAccountId string = storageAccount.id
         for result in search_results:
             result_count += 1
             content = result.get('content', 'No content available')
-
-            # Truncate very large content to prevent token limit issues
-            # Approximate: 1 token ≈ 4 characters, we want to keep context under ~8000 tokens total
-            MAX_CHARS_PER_DOC = 3000  # ~750 tokens per document
-            if len(content) > MAX_CHARS_PER_DOC:
-                app.logger.warning(f"Context {result_count} is {len(content)} chars, truncating to {MAX_CHARS_PER_DOC}")
-                content = content[:MAX_CHARS_PER_DOC] + "\n... [content truncated for length]"
-
             retrieved_content += f"--- Context {result_count} ---\n{content}\n\n"
             total_context_chars += len(content)
 
@@ -257,27 +206,10 @@ output storageAccountId string = storageAccount.id
 
 {retrieved_content}"""
 
-        # Call Azure OpenAI with the agent model (JSON mode, no streaming)
+        # Call Azure OpenAI with the context from AI Search
         yield f"data: {json.dumps({'status': 'progress', 'message': '🤖 Generating Bicep code with Azure OpenAI agent...'})}\n\n"
         app.logger.info(f"Calling Azure OpenAI agent to generate Bicep code...")
         app.logger.info(f"Agent prompt length: {len(agent_user_prompt)} characters (~{len(agent_user_prompt) // 4} tokens)")
-
-        # Calculate approximate input tokens to determine max_tokens
-        # System message + user prompt, rough estimate: 1 token ≈ 4 characters
-        estimated_input_tokens = count_tokens(AGENT_SYSTEM_MESSAGE) + count_tokens(agent_user_prompt)
-
-        # GPT-4o mini has a 128k token context window with max 16k output tokens
-        # Context window: 128,000 tokens
-        # Max output tokens: 16,384 tokens
-        CONTEXT_WINDOW = 128000
-        MAX_OUTPUT_LIMIT = 16384
-
-        # Calculate safe max_tokens: ensure input + output doesn't exceed context window
-        # Also respect the model's maximum output token limit
-        available_tokens = CONTEXT_WINDOW - estimated_input_tokens - 500  # 500 token safety buffer
-        max_output_tokens = min(MAX_OUTPUT_LIMIT, available_tokens, 8192)  # Cap at 8192 for typical responses
-
-        app.logger.info(f"Estimated input tokens: {estimated_input_tokens}, max output tokens: {max_output_tokens}")
 
         openai_start = time.time()
 
@@ -287,10 +219,9 @@ output storageAccountId string = storageAccount.id
                 {"role": "system", "content": AGENT_SYSTEM_MESSAGE},
                 {"role": "user", "content": agent_user_prompt}
             ],
-            response_format={"type": "json_object"},  # Force JSON output
-            temperature=0.1,  # Lower temperature for deterministic JSON
-            max_tokens=max_output_tokens,
-            timeout=60.0  # Add 60 second timeout to prevent hanging
+            response_format={"type": "json_object"},
+            temperature=0.1,
+            timeout=60.0
         )
 
         openai_end = time.time()
@@ -314,17 +245,22 @@ output storageAccountId string = storageAccount.id
 
             # Extract the Bicep code from the JSON structure
             generated_bicep = ""
-            for file_obj in response_data.get("files", []):
-                if file_obj.get("path") == "main.bicep":
-                    generated_bicep = file_obj.get("content", "")
-                    break
+            files = response_data.get("files", [])
+
+            for file_obj in files:
+                if isinstance(file_obj, dict):
+                    if file_obj.get("path") == "main.bicep":
+                        generated_bicep = file_obj.get("content", "")
+                        break
+                elif isinstance(file_obj, str):
+                    app.logger.warning(f"Unexpected string in files array: {file_obj[:100]}")
+                    continue
 
             if not generated_bicep:
-                # Fallback if main.bicep is not found
                 app.logger.error("Model response did not contain a 'main.bicep' file")
+                app.logger.error(f"Files structure: {files}")
                 generated_bicep = "# ERROR: Model did not generate a main.bicep file."
 
-            # Log plan and warnings for debugging
             plan = response_data.get("plan", {})
             warnings = response_data.get("warnings", [])
             app.logger.info(f"Plan: {plan}")
@@ -340,14 +276,7 @@ output storageAccountId string = storageAccount.id
         total_time = time.time() - start_time
         app.logger.info(f"Total request time: {total_time:.2f}s")
 
-        if cache_key:
-            # Cache the generated Bicep code
-            add_to_cache(cache_key, generated_bicep)
-            app.logger.info(f"Cached response for key: {cache_key}")
-
-        # Send debug information
         debug_info = {
-            'cache_hit': False,
             'search_time': f"{search_duration:.2f}s" if 'search_duration' in locals() else 'N/A',
             'ai_time': f"{openai_duration:.2f}s" if 'openai_duration' in locals() else 'N/A',
             'total_time': f"{total_time:.2f}s",
@@ -355,23 +284,18 @@ output storageAccountId string = storageAccount.id
             'context_size': f"{total_context_chars} chars (~{total_context_chars // 4} tokens)" if 'total_context_chars' in locals() else 'N/A',
             'search_content': retrieved_content if 'retrieved_content' in locals() else 'N/A'
         }
-        yield f"data: {json.dumps({'status': 'debug', 'debug': debug_info})}\n\n"
 
-        # Return the generated Bicep code
+        yield f"data: {json.dumps({'status': 'debug', 'debug': debug_info})}\n\n"
         yield f"data: {json.dumps({'status': 'complete', 'bicep': generated_bicep})}\n\n"
 
     except TimeoutError as e:
-        # Log timeout error
         app.logger.error(f"Timeout during generation: {e}", exc_info=True)
 
-        # Send timeout error event
         yield f"data: {json.dumps({'status': 'error', 'error': 'The request timed out. The query may be too complex or the service is experiencing high load. Please try simplifying your request or try again later.'})}\n\n"
 
     except Exception as e:
-        # Log the full error with traceback
         app.logger.error(f"Error during generation: {e}", exc_info=True)
 
-        # Send error event
         yield f"data: {json.dumps({'status': 'error', 'error': 'An error occurred while generating the Bicep template. Please try again or contact support if the problem persists.'})}\n\n"
 
 @app.route('/generate', methods=['POST'])
@@ -379,91 +303,53 @@ output storageAccountId string = storageAccount.id
 def generate():
     """Endpoint that streams progress updates using Server-Sent Events"""
     try:
-        request_id = str(uuid.uuid4())[:8]  # Short request ID
+        request_id = str(uuid.uuid4())[:8]
 
-        # Get JSON data from request body
         data = request.get_json()
 
-        # Check if data exists
         if not data:
             app.logger.warning("Request received with no data")
             return jsonify({"error": "No data provided"}), 400
 
-        # Extract the prompt value
         user_query = data.get('prompt')
 
-        # Check if prompt is missing or empty
         if not user_query:
             app.logger.warning("Request received with empty prompt")
             return jsonify({"error": "Prompt is required"}), 400
 
-        # Extract the mode (default to 'avm' if not provided)
         mode = data.get('mode', 'avm')
 
-        # Validate mode
         if mode not in ['avm', 'classic']:
             app.logger.warning(f"Invalid mode received: {mode}, defaulting to 'avm'")
             mode = 'avm'
 
-        # Initialize search filter and augmented query
         search_filter = None
         augmented_user_query = user_query
 
-        # Set filter and query augmentation based on mode
         if mode == 'avm':
             search_filter = "search.ismatch('AVM Module', 'content')"
             augmented_user_query += " avm"
-        else:  # mode == 'classic'
+        else:
             search_filter = "search.ismatch('ARM Schema', 'content')"
             augmented_user_query += " classic non-avm"
 
-        # Log the filter and augmented query
         app.logger.info(f'[{request_id}] Search filter: {search_filter}')
         app.logger.info(f'[{request_id}] Augmented user query: {augmented_user_query}')
         app.logger.info(f'[{request_id}] Mode: {mode}')
 
-        cache_key = get_cache_key(user_query, mode)
-        cached_bicep = get_from_cache(cache_key)
-
-        if cached_bicep:
-            app.logger.info(f"Cache hit for query: {user_query[:50]}...")
-
-            def send_cached_response():
-                yield f"data: {json.dumps({'status': 'progress', 'message': '⚡ Retrieved from cache...'})}\n\n"
-                # Send debug info for cached response
-                debug_info = {
-                    'cache_hit': True,
-                    'search_time': '0.00s',
-                    'ai_time': '0.00s',
-                    'total_time': '~0.01s',
-                    'result_count': 'N/A (cached)',
-                    'context_size': 'N/A (cached)',
-                    'search_content': 'N/A (cached)'
-                }
-                yield f"data: {json.dumps({'status': 'debug', 'debug': debug_info})}\n\n"
-                yield f"data: {json.dumps({'status': 'complete', 'bicep': cached_bicep})}\n\n"
-
-            return Response(
-                send_cached_response(),
-                mimetype='text/event-stream',
-                headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
-            )
-        else:
-            return Response(
-                generate_stream(augmented_user_query, cache_key, search_filter),
-                mimetype='text/event-stream',
-                headers={
-                    'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no',
-                    'X-Request-ID': request_id
-                }
-            )
+        return Response(
+            generate_stream(augmented_user_query, search_filter),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+                'X-Request-ID': request_id
+            }
+        )
 
     except Exception as e:
-        # Log the full error with traceback
         app.logger.error(f"Error during generation: {e}", exc_info=True)
 
-        # Return a user-friendly error message
         return jsonify({
             "error": "An error occurred while generating the Bicep template. Please try again or contact support if the problem persists."
         }), 500
@@ -478,10 +364,8 @@ def health():
         "timestamp": time.time()
     }
 
-    # Check if Azure services are reachable
     if AZURE_ENABLED:
         try:
-            # Quick ping to search service
             list(search_client.search(search_text="test", top=1))
             health_status["search_service"] = "ok"
         except Exception as e:

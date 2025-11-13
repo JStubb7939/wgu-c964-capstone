@@ -1,6 +1,3 @@
-
-
-// Get DOM elements
 const submitButton = document.getElementById('submit-button');
 const promptInput = document.getElementById('prompt-input');
 const statusMessage = document.getElementById('status-message');
@@ -13,7 +10,7 @@ submitButton.addEventListener('click', async (event) => {
     event.preventDefault();
 
     if (isGenerating) {
-        return; // Prevent multiple simultaneous requests
+        return;
     }
 
     isGenerating = true;
@@ -32,8 +29,6 @@ submitButton.addEventListener('click', async (event) => {
     statusMessage.textContent = 'Starting...';
     statusMessage.className = 'text-sm text-blue-600 mb-4 font-semibold';
 
-    // Reset debug information
-    document.getElementById('debug-cache-status').textContent = '-';
     document.getElementById('debug-total-time').textContent = '-';
     document.getElementById('debug-search-time').textContent = '-';
     document.getElementById('debug-ai-time').textContent = '-';
@@ -41,14 +36,12 @@ submitButton.addEventListener('click', async (event) => {
     document.getElementById('debug-context-size').textContent = '-';
     document.getElementById('debug-mode').textContent = '-';
 
-    // Reset search content and hide container
     document.getElementById('search-content-code').textContent = 'No search content available';
     const searchContentContainer = document.getElementById('search-content-container');
     const toggleSearchBtn = document.getElementById('toggle-search-content-btn');
     searchContentContainer.classList.add('hidden');
     toggleSearchBtn.textContent = 'Show Content';
 
-    // Hide the code output during generation
     const codePre = document.getElementById('code-pre');
     codePre.style.visibility = 'hidden';
 
@@ -57,7 +50,6 @@ submitButton.addEventListener('click', async (event) => {
     submitButton.className = 'w-full bg-gray-400 text-white py-2 px-4 rounded-md cursor-not-allowed transition';
 
     try {
-        // Cancel previous request if still running
         if (abortController) {
             abortController.abort();
         }
@@ -94,7 +86,6 @@ submitButton.addEventListener('click', async (event) => {
             return;
         }
 
-        // Process Server-Sent Events for progress updates
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -116,16 +107,13 @@ submitButton.addEventListener('click', async (event) => {
                         const event = JSON.parse(jsonData);
 
                         if (event.status === 'progress') {
-                            // Update status message for progress updates
                             statusMessage.textContent = event.message;
                             statusMessage.className = 'text-sm text-blue-600 mb-4 font-semibold';
                         } else if (event.status === 'debug') {
-                            // Update debug information
                             const debug = event.debug;
                             const modeAVM = document.getElementById('mode-avm').checked;
                             const bicepMode = modeAVM ? 'AVM' : 'Classic';
 
-                            document.getElementById('debug-cache-status').textContent = debug.cache_hit ? '✅ Cache Hit' : '❌ Cache Miss';
                             document.getElementById('debug-total-time').textContent = debug.total_time;
                             document.getElementById('debug-search-time').textContent = debug.search_time;
                             document.getElementById('debug-ai-time').textContent = debug.ai_time;
@@ -133,19 +121,16 @@ submitButton.addEventListener('click', async (event) => {
                             document.getElementById('debug-context-size').textContent = debug.context_size;
                             document.getElementById('debug-mode').textContent = bicepMode;
 
-                            // Update search content
                             const searchContentCode = document.getElementById('search-content-code');
-                            if (debug.search_content && debug.search_content !== 'N/A' && debug.search_content !== 'N/A (cached)') {
+                            if (debug.search_content && debug.search_content !== 'N/A') {
                                 searchContentCode.textContent = debug.search_content;
                             } else {
                                 searchContentCode.textContent = debug.search_content || 'No search content available';
                             }
                         } else if (event.status === 'complete') {
-                            // Set the final Bicep code (no streaming of content)
                             const bicepCode = event.bicep || '// No code generated';
                             outputCode.textContent = bicepCode;
 
-                            // Apply syntax highlighting first, then show the code
                             Prism.highlightElement(outputCode);
                             codePre.style.visibility = 'visible';
 
@@ -188,7 +173,6 @@ submitButton.addEventListener('click', async (event) => {
     }
 });
 
-// Allow Enter key to submit (Ctrl+Enter for textarea)
 promptInput.addEventListener('keydown', (event) => {
     if (event.ctrlKey && event.key === 'Enter') {
         submitButton.click();
@@ -250,7 +234,7 @@ function toggleSearchContent() {
     }
 }
 
-let isWrapped = false; // Start with wrap OFF to preserve indentation
+let isWrapped = false;
 function toggleWordWrap() {
     const codePre = document.getElementById('code-pre');
     const outputCode = document.getElementById('output-code');
@@ -260,13 +244,13 @@ function toggleWordWrap() {
 
     if (isWrapped) {
         codePre.style.whiteSpace = 'pre-wrap';
-        codePre.style.wordWrap = 'break-word';
+        codePre.style.overflow = 'break-word';
         codePre.style.overflowWrap = 'break-word';
         outputCode.style.whiteSpace = 'pre-wrap';
         wrapToggle.textContent = 'Wrap: On';
     } else {
         codePre.style.whiteSpace = 'pre';
-        codePre.style.wordWrap = 'normal';
+        codePre.style.overflow = 'normal';
         codePre.style.overflowWrap = 'normal';
         outputCode.style.whiteSpace = 'pre';
         wrapToggle.textContent = 'Wrap: Off';
@@ -324,7 +308,6 @@ function downloadCode() {
     }, 2000);
 }
 
-// Image modal functions
 function openImageModal(imgElement) {
     const modal = document.getElementById('image-modal');
     const modalImage = document.getElementById('modal-image');
@@ -333,7 +316,6 @@ function openImageModal(imgElement) {
     modalImage.alt = imgElement.alt;
     modal.classList.remove('hidden');
 
-    // Prevent body scroll when modal is open
     document.body.style.overflow = 'hidden';
 }
 
@@ -341,11 +323,9 @@ function closeImageModal() {
     const modal = document.getElementById('image-modal');
     modal.classList.add('hidden');
 
-    // Restore body scroll
     document.body.style.overflow = 'auto';
 }
 
-// Close modal on Escape key
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
         closeImageModal();

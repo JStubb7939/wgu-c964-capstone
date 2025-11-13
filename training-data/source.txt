@@ -1,4 +1,7 @@
-The quickstart templates used to create this training data are located in 
-the Azure Quickstart Templates GitHub repository:
+The quickstart templates used to create this training data are located in:
 
+Azure Quickstart Templates GitHub repository:
 https://github.com/Azure/azure-quickstart-templates
+
+AVM Modules:
+https://github.com/Azure/bicep-registry-modules

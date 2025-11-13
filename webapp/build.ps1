@@ -1,34 +1,26 @@
-# Build and Deploy Script for ARM Template Generator
-# Usage: .\build.ps1 [version]
-# Example: .\build.ps1 1.0.1
-
 param(
     [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-# Configuration
 $REGISTRY_NAME = "c964registry"
 $REGISTRY = "${REGISTRY_NAME}.azurecr.io"
 $IMAGE_NAME = "arm-template-generator"
 $VERSION_FILE = "version.txt"
 $LOG_FILE = "build.log"
 
-# Start logging (overwrite existing log)
 Start-Transcript -Path $LOG_FILE -Force
 
 Write-Host "=== ARM Template Generator - Build & Deploy ===" -ForegroundColor Cyan
 Write-Host "Build log will be saved to: $LOG_FILE" -ForegroundColor Gray
 Write-Host ""
 
-# Update version if provided
 if ($Version) {
     Write-Host "Updating version to: $Version" -ForegroundColor Yellow
     $Version | Out-File -FilePath $VERSION_FILE -Encoding utf8 -NoNewline
     Write-Host "✓ Version updated in $VERSION_FILE" -ForegroundColor Green
 } else {
-    # Read current version
     if (Test-Path $VERSION_FILE) {
         $Version = Get-Content $VERSION_FILE -Raw
         $Version = $Version.Trim()
@@ -43,7 +35,6 @@ if ($Version) {
 
 Write-Host ""
 
-# Build Docker image
 Write-Host "Building Docker image..." -ForegroundColor Cyan
 $IMAGE_TAG = "${REGISTRY}/${IMAGE_NAME}:${Version}"
 $IMAGE_LATEST = "${REGISTRY}/${IMAGE_NAME}:latest"
@@ -60,15 +51,12 @@ Write-Host "✓ Docker image built successfully" -ForegroundColor Green
 Write-Host "  Tags: $IMAGE_TAG, $IMAGE_LATEST" -ForegroundColor Gray
 Write-Host ""
 
-# Log into registry
 Write-Host "Logging into Azure Container Registry..." -ForegroundColor Cyan
 az acr login --name $REGISTRY_NAME
 Write-Host "✓ Logged in successfully" -ForegroundColor Green
 
-# Push to registry
 Write-Host "Pushing to Azure Container Registry..." -ForegroundColor Cyan
 
-# Push versioned tag
 docker push $IMAGE_TAG
 if ($LASTEXITCODE -ne 0) {
     Write-Host "✗ Failed to push versioned image!" -ForegroundColor Red
@@ -78,7 +66,6 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "✓ Pushed: $IMAGE_TAG" -ForegroundColor Green
 
-# Push latest tag
 docker push $IMAGE_LATEST
 if ($LASTEXITCODE -ne 0) {
     Write-Host "✗ Failed to push latest image!" -ForegroundColor Red
@@ -88,7 +75,6 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "✓ Pushed: $IMAGE_LATEST" -ForegroundColor Green
 
-# Log out of ACR
 Write-Host "Logging out of ACR..." -ForegroundColor Cyan
 docker logout $REGISTRY
 Write-Host "✓ Logged out of ACR" -ForegroundColor Green
@@ -103,7 +89,6 @@ Write-Host ""
 Write-Host "  2. Or trigger automatic deployment if configured" -ForegroundColor Gray
 Write-Host ""
 
-# Stop logging
 Stop-Transcript
 Write-Host "Build log saved to: $LOG_FILE" -ForegroundColor Gray
 Write-Host "     az containerapp revision restart --name arm-template-generator --resource-group <your-rg>" -ForegroundColor Gray
